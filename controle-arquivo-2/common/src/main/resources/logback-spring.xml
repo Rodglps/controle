@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    
+    <springProperty scope="context" name="springAppName" source="spring.application.name"/>
+    <springProperty scope="context" name="springProfile" source="spring.profiles.active"/>
+    
+    <!-- Console Appender for Local Profile -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+    
+    <!-- JSON Console Appender for Non-Local Profiles -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdcKeyName>correlationId</includeMdcKeyName>
+            <includeMdcKeyName>fileOriginId</includeMdcKeyName>
+            <includeMdcKeyName>fileName</includeMdcKeyName>
+            <includeMdcKeyName>clientId</includeMdcKeyName>
+            <includeMdcKeyName>layoutId</includeMdcKeyName>
+            <includeMdcKeyName>step</includeMdcKeyName>
+            <includeMdcKeyName>acquirerId</includeMdcKeyName>
+            
+            <customFields>{"application":"${springAppName:-controle-arquivos}","profile":"${springProfile:-default}"}</customFields>
+            
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <version>[ignore]</version>
+                <message>message</message>
+                <logger>logger</logger>
+                <thread>thread</thread>
+                <level>level</level>
+                <levelValue>[ignore]</levelValue>
+            </fieldNames>
+            
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                <maxLength>8192</maxLength>
+                <shortenedClassNameLength>30</shortenedClassNameLength>
+                <exclude>sun\.reflect\..*</exclude>
+                <exclude>net\.sf\.cglib\..*</exclude>
+                <exclude>org\.springframework\.cglib\..*</exclude>
+                <exclude>org\.springframework\.aop\..*</exclude>
+                <exclude>java\.lang\.reflect\.Method</exclude>
+                <rootCauseFirst>true</rootCauseFirst>
+            </throwableConverter>
+        </encoder>
+    </appender>
+    
+    <!-- Async Appender for Better Performance -->
+    <appender name="ASYNC_JSON_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="JSON_CONSOLE"/>
+    </appender>
+    
+    <!-- Local Profile: Use Human-Readable Console Logging -->
+    <springProfile name="local">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+        
+        <logger name="com.controle.arquivos" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+        
+        <logger name="org.springframework" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+        
+        <logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+        
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+    </springProfile>
+    
+    <!-- Dev Profile: Use JSON Logging -->
+    <springProfile name="dev">
+        <root level="INFO">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </root>
+        
+        <logger name="com.controle.arquivos" level="DEBUG" additivity="false">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </logger>
+        
+        <logger name="org.springframework" level="WARN" additivity="false">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </logger>
+        
+        <logger name="org.hibernate" level="WARN" additivity="false">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </logger>
+    </springProfile>
+    
+    <!-- Staging Profile: Use JSON Logging -->
+    <springProfile name="staging">
+        <root level="INFO">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </root>
+        
+        <logger name="com.controle.arquivos" level="INFO" additivity="false">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </logger>
+        
+        <logger name="org.springframework" level="WARN" additivity="false">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </logger>
+        
+        <logger name="org.hibernate" level="WARN" additivity="false">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </logger>
+    </springProfile>
+    
+    <!-- Production Profile: Use JSON Logging with Stricter Levels -->
+    <springProfile name="prod">
+        <root level="WARN">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </root>
+        
+        <logger name="com.controle.arquivos" level="INFO" additivity="false">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </logger>
+        
+        <logger name="org.springframework" level="WARN" additivity="false">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </logger>
+        
+        <logger name="org.hibernate" level="WARN" additivity="false">
+            <appender-ref ref="ASYNC_JSON_CONSOLE"/>
+        </logger>
+    </springProfile>
+    
+</configuration>

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: controle-arquivos-config
+  namespace: controle-arquivos
+data:
+  DB_URL: "jdbc:oracle:thin:@oracle-service:1521/XEPDB1"
+  RABBITMQ_HOST: "rabbitmq-service"
+  RABBITMQ_PORT: "5672"
+  SCHEDULE_DELAY_MS: "60000"
+  VAULT_ENABLED: "false"

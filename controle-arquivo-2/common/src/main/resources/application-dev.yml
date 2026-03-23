@@ -1,0 +1,98 @@
+spring:
+  # Datasource Configuration - Oracle RDS Dev
+  datasource:
+    url: ${DB_URL:jdbc:oracle:thin:@oracle-dev.example.com:1521:ORCL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      pool-name: ControleArquivosHikariPool
+      auto-commit: false
+      connection-test-query: SELECT 1 FROM DUAL
+      leak-detection-threshold: 60000
+
+  # RabbitMQ Configuration - AWS MQ Dev
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT:5671}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    ssl:
+      enabled: true
+      algorithm: TLSv1.2
+    connection-timeout: 30000
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 5
+        retry:
+          enabled: true
+          initial-interval: 2000
+          max-attempts: 3
+          multiplier: 2.0
+        concurrency: 2
+        max-concurrency: 10
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      retry:
+        enabled: true
+        initial-interval: 1000
+        max-attempts: 3
+        multiplier: 2.0
+
+# AWS Configuration - Real AWS Dev
+aws:
+  region: ${AWS_REGION:us-east-1}
+  s3:
+    bucket-name: ${S3_BUCKET_NAME:controle-arquivos-dev}
+    path-style-access: false
+  credentials:
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
+
+# SFTP Configuration - External servers via Vault
+sftp:
+  timeout: 30000
+  session-timeout: 120000
+  channel-timeout: 60000
+  strict-host-key-checking: true
+  known-hosts-file: ${SFTP_KNOWN_HOSTS_FILE:/app/config/known_hosts}
+
+# Vault Configuration - Enabled
+vault:
+  enabled: true
+  uri: ${VAULT_URI:https://vault-dev.example.com}
+  token: ${VAULT_TOKEN}
+  kv:
+    enabled: true
+    backend: secret
+    default-context: controle-arquivos/dev
+  connection-timeout: 5000
+  read-timeout: 15000
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.controle.arquivos: DEBUG
+    org.springframework: WARN
+    org.hibernate: WARN
+    org.hibernate.SQL: DEBUG
+
+# Application Configuration
+app:
+  scheduler:
+    enabled: ${SCHEDULER_ENABLED:true}
+    cron: ${SCHEDULER_CRON:0 */10 * * * *}  # Every 10 minutes
+  processing:
+    timeout-seconds: 300
+  retry:
+    max-attempts: 3
+    backoff-delay: 2000

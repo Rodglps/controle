@@ -1,0 +1,155 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controle-arquivos-processor
+  namespace: controle-arquivos
+  labels:
+    app: controle-arquivos-processor
+    component: processor
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: controle-arquivos-processor
+  template:
+    metadata:
+      labels:
+        app: controle-arquivos-processor
+        component: processor
+    spec:
+      containers:
+      - name: processor
+        image: controle-arquivos-processor:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: SPRING_DATASOURCE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: controle-arquivos-config
+              key: database.url
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: controle-arquivos-secrets
+              key: database.username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: controle-arquivos-secrets
+              key: database.password
+        - name: RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: controle-arquivos-config
+              key: rabbitmq.host
+        - name: RABBITMQ_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: controle-arquivos-config
+              key: rabbitmq.port
+        - name: RABBITMQ_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: controle-arquivos-secrets
+              key: rabbitmq.username
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: controle-arquivos-secrets
+              key: rabbitmq.password
+        - name: RABBITMQ_QUEUE_PROCESSAMENTO
+          valueFrom:
+            configMapKeyRef:
+              name: controle-arquivos-config
+              key: rabbitmq.queue.processamento
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        # Liveness Probe - verifica se o pod está vivo
+        # Se falhar, o Kubernetes reinicia o pod
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        # Readiness Probe - verifica se o pod está pronto para receber tráfego
+        # Se falhar, o Kubernetes remove o pod do load balancer
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        # Startup Probe - verifica se a aplicação iniciou corretamente
+        # Útil para aplicações que demoram para inicializar
+        startupProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 30
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: controle-arquivos-processor
+  namespace: controle-arquivos
+  labels:
+    app: controle-arquivos-processor
+    component: processor
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: controle-arquivos-processor
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: controle-arquivos-config
+  namespace: controle-arquivos
+data:
+  database.url: "jdbc:oracle:thin:@//oracle-db:1521/XEPDB1"
+  rabbitmq.host: "rabbitmq-service"
+  rabbitmq.port: "5672"
+  rabbitmq.queue.processamento: "file-processing-queue"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: controle-arquivos-secrets
+  namespace: controle-arquivos
+type: Opaque
+stringData:
+  database.username: "controle_arquivos"
+  database.password: "change-me-in-production"
+  rabbitmq.username: "controle_arquivos"
+  rabbitmq.password: "change-me-in-production"

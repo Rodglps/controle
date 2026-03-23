@@ -1,0 +1,122 @@
+version: "3.9"
+
+services:
+
+  oracle:
+    image: gvenzl/oracle-xe:21-slim
+    container_name: oracle-xe
+    environment:
+      ORACLE_PASSWORD: oracle
+      APP_USER: controle_arquivos
+      APP_USER_PASSWORD: controle_arquivos
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      - ./infra/ddl:/container-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"  # management UI
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  localstack:
+    image: localstack/localstack:3.3
+    container_name: localstack
+    environment:
+      SERVICES: s3
+      DEFAULT_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+    ports:
+      - "4566:4566"
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - ./infra/localstack:/etc/localstack/init/ready.d
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  sftp:
+    image: atmoz/sftp:latest
+    container_name: sftp-server
+    command: user:password:1001
+    ports:
+      - "2222:22"
+    volumes:
+      - sftp-data:/home/user
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: orchestrator/Dockerfile
+    container_name: orchestrator
+    depends_on:
+      oracle:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:oracle:thin:@oracle:1521/XEPDB1
+      DB_USER: controle_arquivos
+      DB_PASSWORD: controle_arquivos
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      SCHEDULE_DELAY_MS: 60000
+      VAULT_ENABLED: "false"
+      # Credenciais SFTP externo (exemplo)
+      CONCIL_CONTROLE_ARQUIVO_SFTP_PAGS_HOST: sftp
+      CONCIL_CONTROLE_ARQUIVO_SFTP_PAGS_PORT: "22"
+      CONCIL_CONTROLE_ARQUIVO_SFTP_PAGS_USER: user
+      CONCIL_CONTROLE_ARQUIVO_SFTP_PAGS_PASSWORD: password
+    ports:
+      - "8080:8080"
+
+  processor:
+    build:
+      context: .
+      dockerfile: processor/Dockerfile
+    container_name: processor
+    depends_on:
+      oracle:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:oracle:thin:@oracle:1521/XEPDB1
+      DB_USER: controle_arquivos
+      DB_PASSWORD: controle_arquivos
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      VAULT_ENABLED: "false"
+      # Credenciais S3 LocalStack
+      CONCIL_CONTROLE_ARQUIVO_S3_PAGS_BUCKET: controle-arquivos
+      CONCIL_CONTROLE_ARQUIVO_S3_PAGS_REGION: us-east-1
+      CONCIL_CONTROLE_ARQUIVO_S3_PAGS_ENDPOINT: http://localstack:4566
+      CONCIL_CONTROLE_ARQUIVO_S3_PAGS_ACCESS_KEY: test
+      CONCIL_CONTROLE_ARQUIVO_S3_PAGS_SECRET_KEY: test
+    ports:
+      - "8081:8080"
+
+volumes:
+  oracle-data:
+  localstack-data:
+  sftp-data:

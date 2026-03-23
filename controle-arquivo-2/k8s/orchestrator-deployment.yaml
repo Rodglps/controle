@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controle-arquivos-orchestrator
+  labels:
+    app: controle-arquivos
+    component: orchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: controle-arquivos
+      component: orchestrator
+  template:
+    metadata:
+      labels:
+        app: controle-arquivos
+        component: orchestrator
+    spec:
+      containers:
+      - name: orchestrator
+        image: controle-arquivos-orchestrator:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: controle-arquivos-secrets
+              key: db-url
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: controle-arquivos-secrets
+              key: db-username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: controle-arquivos-secrets
+              key: db-password
+        - name: RABBITMQ_HOST
+          valueFrom:
+            secretKeyRef:
+              name: controle-arquivos-secrets
+              key: rabbitmq-host
+        - name: RABBITMQ_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: controle-arquivos-config
+              key: rabbitmq-port
+        - name: RABBITMQ_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: controle-arquivos-secrets
+              key: rabbitmq-username
+        - name: RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: controle-arquivos-secrets
+              key: rabbitmq-password
+        - name: RABBITMQ_VHOST
+          valueFrom:
+            configMapKeyRef:
+              name: controle-arquivos-config
+              key: rabbitmq-vhost
+        - name: VAULT_URI
+          valueFrom:
+            secretKeyRef:
+              name: controle-arquivos-secrets
+              key: vault-uri
+        - name: VAULT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: controle-arquivos-secrets
+              key: vault-token
+        - name: AWS_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: controle-arquivos-config
+              key: aws-region
+        - name: SCHEDULER_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: controle-arquivos-config
+              key: scheduler-enabled
+        - name: SCHEDULER_CRON
+          valueFrom:
+            configMapKeyRef:
+              name: controle-arquivos-config
+              key: scheduler-cron
+        - name: SFTP_KNOWN_HOSTS_FILE
+          value: "/app/config/known_hosts"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      restartPolicy: Always

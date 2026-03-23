@@ -1,0 +1,9 @@
+{
+  "acquirer": "UNKNOWN_ACQUIRER",
+  "merchant": {
+    "id": "UNKNOWN_001",
+    "name": "Unknown Merchant"
+  },
+  "file_date": "2024-01-15",
+  "transactions": []
+}

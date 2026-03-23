@@ -1,0 +1,145 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+  labels:
+    app: controle-arquivos
+    component: orchestrator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: controle-arquivos
+      component: orchestrator
+  template:
+    metadata:
+      labels:
+        app: controle-arquivos
+        component: orchestrator
+    spec:
+      containers:
+      - name: orchestrator
+        image: controle-arquivos/orchestrator:latest
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: SPRING_DATASOURCE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: orchestrator-config
+              key: database.url
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: orchestrator-secrets
+              key: database.username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: orchestrator-secrets
+              key: database.password
+        - name: SPRING_RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: orchestrator-config
+              key: rabbitmq.host
+        - name: SPRING_RABBITMQ_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: orchestrator-config
+              key: rabbitmq.port
+        - name: SPRING_RABBITMQ_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: orchestrator-secrets
+              key: rabbitmq.username
+        - name: SPRING_RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: orchestrator-secrets
+              key: rabbitmq.password
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        # Liveness Probe - verifica se o pod está vivo
+        # Se falhar, o Kubernetes reinicia o pod
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        # Readiness Probe - verifica se o pod está pronto para receber tráfego
+        # Se falhar, o Kubernetes remove o pod do load balancer
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        # Startup Probe - verifica se a aplicação iniciou
+        # Útil para aplicações que demoram para iniciar
+        startupProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator
+  labels:
+    app: controle-arquivos
+    component: orchestrator
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: controle-arquivos
+    component: orchestrator
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orchestrator-config
+data:
+  database.url: "jdbc:oracle:thin:@//oracle-db:1521/XEPDB1"
+  rabbitmq.host: "rabbitmq"
+  rabbitmq.port: "5672"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: orchestrator-secrets
+type: Opaque
+stringData:
+  database.username: "controle_arquivos"
+  database.password: "change-me-in-production"
+  rabbitmq.username: "orchestrator"
+  rabbitmq.password: "change-me-in-production"

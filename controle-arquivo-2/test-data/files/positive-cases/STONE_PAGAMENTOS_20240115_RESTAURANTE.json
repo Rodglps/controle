@@ -1,0 +1,67 @@
+{
+  "acquirer": "STONE",
+  "merchant": {
+    "id": "RESTAURANTE_GOURMET_001",
+    "name": "Restaurante Gourmet",
+    "cnpj": "12.345.678/0001-90"
+  },
+  "file_date": "2024-01-15",
+  "transactions": [
+    {
+      "transaction_id": "TXN_001",
+      "date": "2024-01-15T12:30:45Z",
+      "type": "CREDIT",
+      "amount": 285.50,
+      "installments": 1,
+      "card_brand": "VISA",
+      "nsu": "987654321",
+      "authorization_code": "AUTH001"
+    },
+    {
+      "transaction_id": "TXN_002",
+      "date": "2024-01-15T13:15:22Z",
+      "type": "DEBIT",
+      "amount": 145.00,
+      "installments": 1,
+      "card_brand": "MASTERCARD",
+      "nsu": "987654322",
+      "authorization_code": "AUTH002"
+    },
+    {
+      "transaction_id": "TXN_003",
+      "date": "2024-01-15T14:45:10Z",
+      "type": "CREDIT",
+      "amount": 520.75,
+      "installments": 2,
+      "card_brand": "ELO",
+      "nsu": "987654323",
+      "authorization_code": "AUTH003"
+    },
+    {
+      "transaction_id": "TXN_004",
+      "date": "2024-01-15T18:20:33Z",
+      "type": "CREDIT",
+      "amount": 890.00,
+      "installments": 3,
+      "card_brand": "VISA",
+      "nsu": "987654324",
+      "authorization_code": "AUTH004"
+    },
+    {
+      "transaction_id": "TXN_005",
+      "date": "2024-01-15T19:55:18Z",
+      "type": "DEBIT",
+      "amount": 210.30,
+      "installments": 1,
+      "card_brand": "MASTERCARD",
+      "nsu": "987654325",
+      "authorization_code": "AUTH005"
+    }
+  ],
+  "summary": {
+    "total_transactions": 5,
+    "total_amount": 2051.55,
+    "credit_count": 3,
+    "debit_count": 2
+  }
+}

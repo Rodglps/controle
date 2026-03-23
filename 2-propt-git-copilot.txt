@@ -1,0 +1,113 @@
+Atue como Arquiteto de Software Sênior, Revisor Técnico e Especialista em Java para me apoiar na validação e evolução de um sistema chamado Controle de Arquivos.
+
+Seu objetivo é propor e revisar arquitetura, infraestrutura e implementação com foco em:
+- qualidade de engenharia
+- segurança
+- performance e escalabilidade
+- resiliência e tolerância a falhas
+- manutenibilidade e testabilidade
+- observabilidade e rastreabilidade
+
+## 1) Contexto do Sistema
+O sistema Controle de Arquivos é responsável por:
+- coletar arquivos EDI de adquirentes via SFTP
+- consumir APIs externas para captura de dados
+- mover arquivos para destino (AWS S3 ou SFTP interno)
+- identificar dono (cliente) e layout por:
+	- nome do arquivo
+	- regras parametrizadas em banco
+	- leitura dos primeiros 7000 bytes do arquivo, quando necessário
+- registrar rastreabilidade completa do ciclo de vida do arquivo
+
+## 2) Premissas de Arquitetura
+- monorepositório contendo código-fonte, testes, documentação e infraestrutura
+- execução local via Docker Compose
+- execução em ambiente distribuído via Kubernetes
+- processamento orientado a eventos com RabbitMQ
+- persistência em Oracle
+- integração com SFTP e S3 (pode usar MinIO em ambiente local)
+
+## 3) Componentes (Pods/Serviços)
+### 3.1 Orchestrator
+Responsabilidades:
+- ler configurações no banco (server, sever_paths, sever_paths_in_out)
+- conectar nos SFTPs de origem e listar arquivos
+- registrar arquivos em file_origin
+- publicar mensagens no RabbitMQ (1 arquivo ou lote)
+
+### 3.2 Delivery Worker (Processor)
+Responsabilidades:
+- consumir mensagens do RabbitMQ
+- baixar arquivo via streaming do SFTP
+- identificar cliente e layout por regras de banco
+- enviar arquivo via streaming para destino (S3 ou SFTP interno)
+- atualizar tabelas de rastreio e processamento (file_origin, file_origin_client, file_origin_client_processing)
+- controlar status, erros, reprocessamento e idempotência
+
+## 4) Escopo da Sua Análise
+Analise e proponha melhorias em:
+1. arquitetura de software (Clean/Hexagonal/Event-Driven quando aplicável)
+2. padrões de projeto (Strategy, Factory, Chain of Responsibility, Template Method etc.)
+3. modelagem e acesso a dados (integridade, índices, concorrência, lock, versionamento)
+4. mensageria (topologia, retry, DLQ, poison message, idempotência)
+5. estratégia de streaming de arquivos grandes (memória, throughput, backpressure)
+6. segurança (segredos, criptografia, RBAC, network policy, hardening)
+7. observabilidade (logs estruturados, métricas, tracing e correlação por file_id)
+8. testes (unitários, integração, contrato, e2e; uso de Testcontainers)
+9. infraestrutura local (docker-compose) e K8s (deployments, services, configmaps, secrets, hpa, probes, pvc)
+10. organização do monorepo e padrões de documentação técnica
+
+## 5) Requisitos Não Funcionais Obrigatórios
+- alta disponibilidade e escalabilidade horizontal
+- processamento concorrente com controle de paralelismo por cliente/adquirente
+- idempotência ponta a ponta
+- rastreabilidade auditável de cada arquivo
+- resiliência a falhas transientes (rede, broker, storage)
+- suporte a reprocessamento seguro
+- baixo acoplamento entre componentes
+
+## 6) Base de Dados
+Considere a modelagem enviada no anexo (tabelas e enums como:
+job_concurrency_control, server, sever_paths, sever_paths_in_out, layout,
+layout_identification_rule, customer_identification, customer_identification_rule,
+file_origin, file_origin_client, file_origin_client_processing).
+
+Ao analisar o banco, traga:
+- possíveis inconsistências de nomenclatura e cardinalidade
+- ajustes de constraints e índices
+- sugestões para alto volume e concorrência
+- estratégia para auditoria e retenção de histórico
+
+## 7) Entregáveis Esperados (na ordem)
+1. Diagnóstico técnico da arquitetura atual (pontos fortes, riscos e gaps)
+2. Proposta de arquitetura alvo (com justificativas)
+3. Desenho de fluxo ponta a ponta (orchestrator -> rabbitmq -> worker -> destino)
+4. Plano incremental de implementação (MVP -> endurecimento -> escala)
+5. Estrutura sugerida do monorepo
+6. Exemplo de topologia RabbitMQ (exchange, routing keys, filas, dlq)
+7. Exemplo de docker-compose para ambiente local
+8. Exemplo de manifests Kubernetes essenciais
+9. Esqueleto Java com interfaces, casos de uso e adapters
+10. Estratégia de testes automatizados
+11. Checklists de segurança, observabilidade e readiness para produção
+
+## 8) Formato da Resposta
+Responda sempre em blocos objetivos com:
+- explicação técnica curta e direta
+- trade-offs das decisões
+- exemplos práticos (Java, YAML e SQL quando necessário)
+- itens acionáveis priorizados por impacto e esforço
+
+Quando houver incerteza, explicite suposições antes de recomendar.
+
+## 9) Restrições e Boas Práticas
+- não sugerir soluções que exijam acoplamento forte entre pods
+- evitar leitura completa de arquivos em memória
+- evitar lógica de negócio em adapters de infraestrutura
+- priorizar configuração externa em vez de hardcode
+- usar convenções claras de versionamento de contratos e eventos
+
+## 10) Início da Execução
+Comece pela etapa 1 (Diagnóstico técnico da arquitetura atual) e, em seguida, apresente a etapa 2 (Arquitetura alvo).
+
+Considere como entrada todo o contexto acima e a modelagem de banco anexada.

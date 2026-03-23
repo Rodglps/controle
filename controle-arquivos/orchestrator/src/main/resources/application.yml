@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: orchestrator
+  datasource:
+    url: ${DB_URL:jdbc:oracle:thin:@localhost:1521/XEPDB1}
+    username: ${DB_USER:controle_arquivos}
+    password: ${DB_PASSWORD:controle_arquivos}
+    driver-class-name: oracle.jdbc.OracleDriver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.OracleDialect
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: /
+
+orchestrator:
+  schedule:
+    delay-ms: ${SCHEDULE_DELAY_MS:60000}
+
+vault:
+  enabled: ${VAULT_ENABLED:false}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    br.com.concil: INFO
+    org.springframework.amqp: WARN

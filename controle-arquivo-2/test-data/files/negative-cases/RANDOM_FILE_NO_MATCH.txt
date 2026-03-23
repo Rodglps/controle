@@ -1,0 +1,4 @@
+Este é um arquivo de texto genérico que não corresponde a nenhuma regra.
+Não possui header esperado.
+Não possui nome de arquivo que corresponda aos padrões.
+Deve resultar em erro de identificação de cliente e layout.

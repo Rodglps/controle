@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Console appender for test output -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- File appender for integration test logs -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>target/integration-tests.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>target/integration-tests.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Application loggers -->
+    <logger name="com.controle.arquivos" level="DEBUG" />
+    
+    <!-- Spring Framework -->
+    <logger name="org.springframework" level="INFO" />
+    <logger name="org.springframework.test" level="INFO" />
+    
+    <!-- Hibernate -->
+    <logger name="org.hibernate" level="INFO" />
+    <logger name="org.hibernate.SQL" level="DEBUG" />
+    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE" />
+    
+    <!-- Testcontainers -->
+    <logger name="org.testcontainers" level="INFO" />
+    <logger name="com.github.dockerjava" level="WARN" />
+    
+    <!-- RabbitMQ -->
+    <logger name="org.springframework.amqp" level="INFO" />
+    
+    <!-- AWS SDK -->
+    <logger name="software.amazon.awssdk" level="INFO" />
+    
+    <!-- SFTP -->
+    <logger name="com.jcraft.jsch" level="WARN" />
+
+    <!-- Root logger -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="FILE" />
+    </root>
+</configuration>
