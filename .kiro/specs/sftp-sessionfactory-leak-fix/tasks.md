@@ -1,0 +1,123 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Bug Condition** - SessionFactory Instance Accumulation
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate SessionFactory instances accumulate instead of being reused
+  - **Scoped PBT Approach**: Scope the property to concrete failing case - multiple calls to listFiles() with identical server configuration (same host, port, codVault, vaultSecret)
+  - Test that calling `SftpConfig.createSessionFactory()` multiple times with identical parameters creates multiple distinct SessionFactory instances (from Bug Condition in design)
+  - Use reflection or instrumentation to track SessionFactory instance creation count
+  - The test assertions should match the Expected Behavior Properties from design: SessionFactory instances should be cached and reused per server configuration
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists: multiple SessionFactory instances are created instead of one being reused)
+  - Document counterexamples found to understand root cause (e.g., "10 calls to createSessionFactory('cielo.sftp.com', 22, 'CIELO_VAULT', 'cielo/sftp/credentials') created 10 distinct SessionFactory instances instead of reusing 1")
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - SFTP Operations Behavior Unchanged
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for SFTP file listing operations with various server configurations
+  - Observe: Session objects are closed in finally blocks after use
+  - Observe: File metadata results (filename, size, timestamp, fileType) for sample SFTP directories
+  - Observe: CachingSessionFactory pool size is 10 connections per SessionFactory
+  - Observe: Credentials are retrieved via VaultConfig.getCredentials() with correct parameters
+  - Observe: SFTP connection parameters (host, port, user, password, allowUnknownKeys) are correctly configured
+  - Observe: Error handling throws RuntimeException with appropriate messages for connection failures
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements:
+    - For all server configurations, file listing returns same metadata results
+    - For all SFTP operations, sessions are closed in finally blocks
+    - For all SessionFactory instances, pool size remains 10
+    - For all credential retrievals, VaultConfig.getCredentials() is called with same parameters
+    - For all error scenarios, same exceptions are thrown
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [x] 3. Fix for SessionFactory resource leak
+
+  - [x] 3.1 Add SessionFactory cache to SftpConfig
+    - Add `ConcurrentHashMap<String, SessionFactory<DirEntry>> sessionFactoryCache` field
+    - Initialize as field initializer: `new ConcurrentHashMap<>()`
+    - Thread-safe to handle concurrent scheduler calls
+    - _Bug_Condition: isBugCondition(input) where input.methodName == "listFiles" AND sessionFactoryCreated() AND NOT sessionFactoryReused()_
+    - _Expected_Behavior: SessionFactory instances cached per server configuration and reused across multiple calls_
+    - _Preservation: Session closing, file listing, credentials retrieval, connection parameters, error handling unchanged_
+    - _Requirements: 2.1, 2.2, 2.3_
+
+  - [x] 3.2 Implement cache key generation method
+    - Add private method: `String generateCacheKey(String host, int port, String codVault, String vaultSecret)`
+    - Format: `String.format("%s:%d:%s:%s", host, port, codVault, vaultSecret)`
+    - Example output: `"cielo.sftp.com:22:CIELO_VAULT:cielo/sftp/credentials"`
+    - Uniquely identifies server configurations for cache lookup
+    - _Requirements: 2.3_
+
+  - [x] 3.3 Rename and refactor createSessionFactory to getOrCreateSessionFactory
+    - Rename method from `createSessionFactory()` to `getOrCreateSessionFactory()`
+    - Keep same method signature: `(String host, int port, String codVault, String vaultSecret)`
+    - Implement caching logic using `computeIfAbsent()`:
+      - Generate cache key using `generateCacheKey()`
+      - Check cache first: `sessionFactoryCache.computeIfAbsent(cacheKey, key -> createSessionFactoryInternal(...))`
+      - If found, return cached instance
+      - If not found, create new SessionFactory, store in cache, and return
+    - Extract existing creation logic to private method `createSessionFactoryInternal()` with same parameters
+    - Add log statement: `log.info("Creating new SessionFactory for: {}", cacheKey)` in createSessionFactoryInternal
+    - Add log statement: `log.debug("Reusing cached SessionFactory for: {}", cacheKey)` when cache hit occurs
+    - _Requirements: 2.1, 2.2, 2.3_
+
+  - [x] 3.4 Add lifecycle management for SessionFactory cleanup
+    - Add `@PreDestroy` annotation to new method: `public void destroy()`
+    - Implement cleanup logic:
+      - Log: `log.info("Closing {} cached SessionFactory instances", sessionFactoryCache.size())`
+      - Iterate through `sessionFactoryCache.values()`
+      - For each SessionFactory, check if it implements `DisposableBean`
+      - If yes, call `((DisposableBean) factory).destroy()` in try-catch block
+      - Log errors: `log.error("Error closing SessionFactory", e)`
+      - Clear cache: `sessionFactoryCache.clear()`
+    - Ensures proper cleanup on application shutdown
+    - _Requirements: 2.4, 2.5_
+
+  - [x] 3.5 Update SftpService to use getOrCreateSessionFactory
+    - In `SftpService.listFiles()` method, change call from:
+      - `sftpConfig.createSessionFactory(host, port, config.getCodVault(), config.getDesVaultSecret())`
+    - To:
+      - `sftpConfig.getOrCreateSessionFactory(host, port, config.getCodVault(), config.getDesVaultSecret())`
+    - No other changes needed in SftpService
+    - Maintains same method behavior and signature
+    - _Requirements: 2.1, 2.2_
+
+  - [x] 3.6 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - SessionFactory Caching and Reuse
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms SessionFactory instances are cached and reused
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed: multiple calls with same config return same SessionFactory instance)
+    - Verify counterexamples from task 1 are resolved (e.g., "10 calls now return 1 cached SessionFactory instance")
+    - _Requirements: 2.1, 2.2, 2.3_
+
+  - [x] 3.7 Verify preservation tests still pass
+    - **Property 2: Preservation** - SFTP Operations Behavior Unchanged
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all preservation tests still pass after fix:
+      - File listing returns same metadata results
+      - Sessions are closed in finally blocks
+      - Pool size remains 10
+      - Credentials retrieval unchanged
+      - Error handling unchanged
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Run all unit tests: `mvn test -Dtest=*Test`
+  - Run all property-based tests: `mvn test -Dtest=*PropertyTest`
+  - Verify bug condition test passes (SessionFactory caching works)
+  - Verify preservation tests pass (SFTP operations unchanged)
+  - Check for any compilation errors or warnings
+  - Review logs for proper SessionFactory caching behavior
+  - Ask the user if questions arise or if additional testing is needed

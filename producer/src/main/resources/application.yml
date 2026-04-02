@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: edi-producer
+  
+  datasource:
+    url: ${DB_URL:${ORACLE_URL:jdbc:oracle:thin:@localhost:1521:XE}}
+    username: ${DB_USERNAME:${ORACLE_USERNAME:system}}
+    password: ${DB_PASSWORD:${ORACLE_PASSWORD:oracle}}
+    driver-class-name: oracle.jdbc.OracleDriver
+  
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: ${SHOW_SQL:false}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.OracleDialect
+        format_sql: true
+  
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+
+# Scheduler configuration
+scheduler:
+  file-collection:
+    fixed-delay: ${SCHEDULER_FIXED_DELAY:120000}  # 2 minutes
+
+# Retry configuration
+retry:
+  max-attempts: ${RETRY_MAX_ATTEMPTS:5}
+  initial-interval: ${RETRY_INITIAL_INTERVAL:1000}  # 1 second
+  multiplier: ${RETRY_MULTIPLIER:2}
+  max-interval: ${RETRY_MAX_INTERVAL:16000}  # 16 seconds
+
+# SFTP configuration
+sftp:
+  host: ${SFTP_HOST:localhost}
+  port: ${SFTP_PORT:22}
+  timeout: ${SFTP_TIMEOUT:30000}  # 30 seconds
+
+# Actuator configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    com.concil.edi: ${LOG_LEVEL:DEBUG}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+server:
+  port: ${SERVER_PORT:8080}

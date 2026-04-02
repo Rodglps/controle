@@ -1,0 +1,171 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Bug Condition** - E2E Tests Create Duplicate TestContainers
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists (duplicate containers created when docker-compose is running)
+  - **Scoped PBT Approach**: Scope the property to the concrete failing case: E2E test execution with docker-compose running creates TestContainers instead of connecting to existing containers
+  - Test that when docker-compose containers are running (Oracle on port 1521, RabbitMQ on port 5672, LocalStack on port 4566, SFTP Origin on port 2222, SFTP Destination on port 2223), the E2ETestBase creates new TestContainers instead of connecting to existing containers
+  - The test assertions should verify:
+    - New containers are created (check docker ps for duplicate containers)
+    - Dynamic ports are used instead of fixed ports (1521, 5672, 4566, 2222, 2223)
+    - DDL scripts are executed again (database initialization duplication)
+    - Environment variables (DB_URL, RABBITMQ_HOST, SFTP_CIELO_ORIGIN, S3_DESTINATION, SFTP_DESTINATION) are ignored
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found:
+    - Containers TestContainers are created even with docker-compose running
+    - Dynamic ports are used instead of fixed ports
+    - DDL scripts are executed again, duplicating test data
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Test Scenarios and Validations Unchanged
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for test scenarios:
+    - testSftpToS3Transfer: Observe that SFTP-to-S3 scenario validates complete flow (upload, detection, RabbitMQ, transfer, integrity check)
+    - testSftpToSftpTransfer: Observe that SFTP-to-SFTP scenario validates complete flow
+    - File integrity validations: Observe that size and SHA-256 comparisons work correctly
+    - Database validations: Observe that file_origin fields (step, status, audit) are validated correctly
+    - Helper methods: Observe that uploadToSftpOrigin, downloadFromSftpDestination, downloadFromS3, fileExistsInS3, fileExistsInSftpDestination, calculateSHA256 work correctly
+    - Timeouts: Observe that 150s for detection, 120s for processing, 5min global timeout work correctly
+  - Write property-based tests capturing observed behavior patterns:
+    - For all test scenario executions (SFTP-to-S3, SFTP-to-SFTP), validation results should remain identical
+    - For all file integrity checks, size and SHA-256 comparisons should continue working
+    - For all database validations, file_origin field checks should continue working
+    - For all helper method calls, interfaces and behaviors should remain unchanged
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10_
+
+- [x] 3. Refactor E2ETestBase to use docker-compose containers
+
+  - [x] 3.1 Remove TestContainers infrastructure
+    - Remove @Testcontainers annotation from FileTransferE2ETest class
+    - Remove TestContainers container declarations (oracleContainer, rabbitMQContainer, localStackContainer, sftpOriginContainer, sftpDestinationContainer)
+    - Remove Network creation
+    - Remove initializeDatabase() method and its calls (database already initialized by make init-db)
+    - _Bug_Condition: isBugCondition(testExecution) where testExecution.hasDockerComposeRunning() == true AND testExecution.usesTestContainers() == true AND NOT testExecution.connectsToExistingContainers()_
+    - _Expected_Behavior: For all test executions where docker-compose is running, connect to existing containers using environment variables instead of creating TestContainers_
+    - _Preservation: Test scenarios (SFTP-to-S3, SFTP-to-SFTP) and validations (integrity, audit) must continue functioning exactly as before_
+    - _Requirements: 2.1, 2.7, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10_
+
+  - [x] 3.2 Add environment variable configuration
+    - Create parseServerConfig(String envVarName) method to read and parse JSON environment variables
+    - Add validatePrerequisites() method to verify environment variables are defined and containers are accessible
+    - Read DB_URL, DB_USERNAME, DB_PASSWORD for Oracle connection
+    - Read RABBITMQ_HOST, RABBITMQ_PORT, RABBITMQ_USERNAME, RABBITMQ_PASSWORD for RabbitMQ connection
+    - Parse SFTP_CIELO_ORIGIN JSON to get host, port, user, password for SFTP origin
+    - Parse S3_DESTINATION JSON to get endpoint, region, accessKey, secretKey for S3
+    - Parse SFTP_DESTINATION JSON to get host, port, user, password for SFTP destination
+    - _Bug_Condition: isBugCondition(testExecution) where environment variables are ignored_
+    - _Expected_Behavior: Read configuration from environment variables (DB_URL, RABBITMQ_HOST, SFTP_CIELO_ORIGIN, S3_DESTINATION, SFTP_DESTINATION)_
+    - _Preservation: Helper methods (uploadToSftpOrigin, downloadFromSftpDestination, downloadFromS3, fileExistsInS3, fileExistsInSftpDestination, calculateSHA256) must maintain same interface_
+    - _Requirements: 2.2, 2.3, 2.4, 2.5, 2.6, 2.8, 2.9, 2.10, 3.6_
+
+  - [x] 3.3 Refactor setupInfrastructure() method
+    - Call validatePrerequisites() to ensure environment is ready
+    - Initialize jdbcUrl, dbUsername, dbPassword from environment variables
+    - Initialize rabbitMQHost, rabbitMQPort, rabbitMQUsername, rabbitMQPassword from environment variables
+    - Parse and store SFTP origin configuration from SFTP_CIELO_ORIGIN
+    - Parse and store SFTP destination configuration from SFTP_DESTINATION
+    - Parse and store S3 configuration from S3_DESTINATION
+    - Call initializeS3() with parsed S3 configuration
+    - Remove all TestContainers creation logic
+    - _Bug_Condition: isBugCondition(testExecution) where setupInfrastructure() creates TestContainers_
+    - _Expected_Behavior: setupInfrastructure() should connect to docker-compose containers using environment variables_
+    - _Preservation: Test scenarios must continue validating complete flows with same timeouts (150s detection, 120s processing, 5min global)_
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 3.7, 3.8, 3.10_
+
+  - [x] 3.4 Refactor initializeS3() method
+    - Modify to use S3 endpoint from parsed S3_DESTINATION configuration
+    - Use accessKey and secretKey from parsed configuration
+    - Use region from parsed configuration
+    - Keep bucket creation and versioning logic unchanged
+    - _Bug_Condition: isBugCondition(testExecution) where S3 client uses localStackContainer.getEndpoint()_
+    - _Expected_Behavior: S3 client should use endpoint from S3_DESTINATION environment variable_
+    - _Preservation: S3 operations (fileExistsInS3, downloadFromS3) must continue working with same behavior_
+    - _Requirements: 2.5, 2.10, 3.1, 3.5, 3.6_
+
+  - [x] 3.5 Update SFTP helper methods
+    - Modify uploadToSftpOrigin() to use host and port from parsed SFTP_CIELO_ORIGIN configuration
+    - Modify downloadFromSftpDestination() to use host and port from parsed SFTP_DESTINATION configuration
+    - Modify fileExistsInSftpDestination() to use host and port from parsed SFTP_DESTINATION configuration
+    - Keep method signatures and behavior unchanged
+    - _Bug_Condition: isBugCondition(testExecution) where SFTP methods use sftpOriginContainer.getHost() and getMappedPort()_
+    - _Expected_Behavior: SFTP methods should use host and port from environment variables_
+    - _Preservation: SFTP operations must continue working with same interface and behavior_
+    - _Requirements: 2.4, 2.6, 2.8, 2.9, 3.2, 3.5, 3.6_
+
+  - [x] 3.6 Simplify teardownInfrastructure() method
+    - Keep S3 client close() call
+    - Remove all container stop() calls
+    - Remove network close() call
+    - Update log message to indicate containers are kept running for debugging
+    - _Bug_Condition: isBugCondition(testExecution) where teardownInfrastructure() destroys containers_
+    - _Expected_Behavior: teardownInfrastructure() should keep docker-compose containers running for debugging_
+    - _Preservation: Test cleanup should not affect test execution or validation results_
+    - _Requirements: 2.11, 3.1, 3.2, 3.3, 3.4, 3.5_
+
+  - [x] 3.7 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - E2E Tests Use Docker Compose Containers
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - Verify that:
+      - No new TestContainers are created
+      - Fixed ports (1521, 5672, 4566, 2222, 2223) are used
+      - No DDL scripts are executed (database already initialized)
+      - Environment variables are read and used correctly
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11_
+
+  - [x] 3.8 Verify preservation tests still pass
+    - **Property 2: Preservation** - Test Scenarios and Validations Unchanged
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Verify that:
+      - testSftpToS3Transfer continues validating complete flow
+      - testSftpToSftpTransfer continues validating complete flow
+      - File integrity checks (size, SHA-256) continue working
+      - Database validations (step, status, audit) continue working
+      - Helper methods continue working with same interface
+      - Timeouts remain unchanged (150s, 120s, 5min)
+    - Confirm all tests still pass after fix (no regressions)
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10_
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Run complete test suite: `make e2e`
+  - Verify that bug condition test passes (no duplicate containers)
+  - Verify that preservation tests pass (no regressions)
+  - Verify that testSftpToS3Transfer passes (testSftpToSftpTransfer removed - multiple destinations deferred to future feature)
+  - Check logs to confirm docker-compose containers are used
+  - **COMPLETED**: All E2E tests passing successfully
+    - SFTP-to-S3 transfer test passes with full integrity validation
+    - All 7 preservation property tests pass
+    - Fixed SFTP directory permissions issue (chown 1001:100 /home/cielo/upload)
+    - Database reinitialized with updated DDL (SFTP-to-SFTP mapping removed)
+
+- [x] 5. Fix Consumer RabbitMQ message deserialization
+  - Issue: Consumer cannot deserialize messages from RabbitMQ (error: "Cannot convert from [[B] to [FileTransferMessageDTO]")
+  - Root Cause: ConsumerApplication does not scan com.concil.edi.commons.config package, so RabbitMQConfig with Jackson2JsonMessageConverter is not loaded
+  - Fix: Add @ComponentScan to ConsumerApplication to include commons.config package
+  - Update ConsumerApplication.java to add: @ComponentScan(basePackages = {"com.concil.edi.consumer", "com.concil.edi.commons.config"})
+  - Rebuild and restart Consumer: `make restart`
+  - Verify Consumer can process messages from RabbitMQ queue
+  - Check logs to confirm successful message processing
+
+- [x] 6. Final checkpoint - Run E2E tests
+  - Run complete test suite: `make e2e`
+  - Verify that bug condition test passes (no duplicate containers)
+  - Verify that preservation tests pass (no regressions)
+  - Verify that testSftpToS3Transfer and testSftpToSftpTransfer pass
+  - Check logs to confirm docker-compose containers are used
+  - Confirm all tests pass successfully

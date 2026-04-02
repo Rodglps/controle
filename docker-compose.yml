@@ -1,0 +1,181 @@
+version: '3.8'
+
+services:
+  # Oracle Database
+  oracle:
+    image: gvenzl/oracle-xe:21-slim-faststart
+    container_name: edi-oracle
+    environment:
+      TZ: America/Sao_Paulo
+      ORACLE_PASSWORD: oracle
+      APP_USER: edi_user
+      APP_USER_PASSWORD: edi_pass
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      - ./scripts/ddl:/container-entrypoint-initdb.d
+    networks:
+      - edi-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: edi-rabbitmq
+    environment:
+      TZ: America/Sao_Paulo
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - edi-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # LocalStack for S3 simulation
+  localstack:
+    image: localstack/localstack:latest
+    container_name: edi-localstack
+    environment:
+      TZ: America/Sao_Paulo
+      SERVICES: s3
+      DEBUG: 0
+      PERSISTENCE: 1
+      AWS_DEFAULT_REGION: us-east-1
+      LOCALSTACK_ACKNOWLEDGE_ACCOUNT_REQUIREMENT: 1
+    ports:
+      - "4566:4566"
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - ./scripts/localstack:/etc/localstack/init/ready.d
+    networks:
+      - edi-network
+    healthcheck:
+      test: ["CMD", "awslocal", "s3", "ls"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # SFTP Origin Server (External Acquirer)
+  sftp-origin:
+    image: atmoz/sftp:latest
+    container_name: edi-sftp-origin
+    command: cielo:admin-1-2-3:1001:100:upload
+    environment:
+      TZ: America/Sao_Paulo
+    ports:
+      - "2222:22"
+    volumes:
+      - sftp-origin-data:/home/cielo/upload
+    networks:
+      - edi-network
+
+  # SFTP Destination Server (Internal)
+  sftp-destination:
+    image: atmoz/sftp:latest
+    container_name: edi-sftp-destination
+    command: internal:internal-pass:1002:100:destination
+    environment:
+      TZ: America/Sao_Paulo
+    ports:
+      - "2223:22"
+    volumes:
+      - sftp-destination-data:/home/internal/destination
+    networks:
+      - edi-network
+
+  # Producer Application
+  producer:
+    build:
+      context: ./producer
+      dockerfile: Dockerfile
+    container_name: edi-producer
+    environment:
+      TZ: America/Sao_Paulo
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:oracle:thin:@oracle:1521/XEPDB1
+      DB_USERNAME: edi_user
+      DB_PASSWORD: edi_pass
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin
+      SFTP_HOST: sftp-origin
+      SFTP_PORT: 22
+      SFTP_CIELO_VAULT: '{"user":"cielo","password":"admin-1-2-3"}'
+    ports:
+      - "8080:8080"
+    networks:
+      - edi-network
+    depends_on:
+      oracle:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      sftp-origin:
+        condition: service_started
+
+  # Consumer Application
+  consumer:
+    build:
+      context: ./consumer
+      dockerfile: Dockerfile
+    container_name: edi-consumer
+    environment:
+      TZ: America/Sao_Paulo
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:oracle:thin:@oracle:1521/XEPDB1
+      DB_USERNAME: edi_user
+      DB_PASSWORD: edi_pass
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin
+      AWS_ENDPOINT: http://localstack:4566
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      SFTP_CIELO_VAULT: '{"host":"sftp-origin","port":"22","user":"cielo","password":"admin-1-2-3"}'
+      SFTP_INTERNAL_VAULT: '{"host":"sftp-destination","port":"22","user":"internal","password":"internal-pass"}'
+      QUEUE_DELAY: ${QUEUE_DELAY:-0}
+    ports:
+      - "8081:8081"
+    networks:
+      - edi-network
+    depends_on:
+      oracle:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      sftp-origin:
+        condition: service_started
+      sftp-destination:
+        condition: service_started
+
+networks:
+  edi-network:
+    driver: bridge
+
+volumes:
+  oracle-data:
+  rabbitmq-data:
+  localstack-data:
+  sftp-origin-data:
+  sftp-destination-data:

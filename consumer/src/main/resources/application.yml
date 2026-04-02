@@ -1,0 +1,168 @@
+spring:
+  application:
+    name: edi-consumer
+  
+  # Oracle Database Configuration
+  datasource:
+    url: ${DB_URL:jdbc:oracle:thin:@localhost:1521:XE}
+    username: ${DB_USERNAME:system}
+    password: ${DB_PASSWORD:oracle}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  # JPA Configuration
+  jpa:
+    database-platform: org.hibernate.dialect.OracleDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+  
+  # RabbitMQ Configuration
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        # Retry configuration: 3 attempts with exponential backoff
+        retry:
+          enabled: true
+          initial-interval: 1000ms
+          max-attempts: 3
+          multiplier: 2.0
+          max-interval: 10000ms
+        # Acknowledge mode
+        acknowledge-mode: auto
+        # Prefetch count
+        prefetch: 1
+        # Concurrency
+        concurrency: 1
+        max-concurrency: 5
+
+# RabbitMQ Queue Configuration
+rabbitmq:
+  queue:
+    file-transfer: ${RABBITMQ_QUEUE_FILE_TRANSFER:edi.file.transfer.queue}
+  exchange:
+    file-transfer: ${RABBITMQ_EXCHANGE_FILE_TRANSFER:edi.file.transfer.exchange}
+  routing-key:
+    file-transfer: ${RABBITMQ_ROUTING_KEY_FILE_TRANSFER:edi.file.transfer}
+
+# AWS S3 Configuration (LocalStack for development)
+aws:
+  s3:
+    region: ${AWS_REGION:us-east-1}
+    endpoint: ${AWS_ENDPOINT:http://localhost:4566}
+    access-key: ${AWS_ACCESS_KEY:test}
+    secret-key: ${AWS_SECRET_KEY:test}
+    # Force path style for LocalStack compatibility
+    path-style-access: true
+
+# SFTP Configuration
+sftp:
+  connection:
+    timeout: ${SFTP_CONNECTION_TIMEOUT:30000}
+    session-timeout: ${SFTP_SESSION_TIMEOUT:60000}
+  pool:
+    max-active: ${SFTP_POOL_MAX_ACTIVE:10}
+    max-idle: ${SFTP_POOL_MAX_IDLE:5}
+    min-idle: ${SFTP_POOL_MIN_IDLE:2}
+
+# Actuator Configuration (Health Checks)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    defaults:
+      enabled: true
+    db:
+      enabled: true
+    rabbit:
+      enabled: true
+
+# Server Configuration
+server:
+  port: ${SERVER_PORT:8081}
+  shutdown: graceful
+
+# Logging Configuration (Structured Logging)
+logging:
+  level:
+    root: INFO
+    com.concil.edi.consumer: DEBUG
+    org.springframework.amqp: INFO
+    org.springframework.integration: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/consumer.log
+    max-size: 10MB
+    max-history: 30
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+  
+  jpa:
+    show-sql: true
+  
+  rabbitmq:
+    host: localhost
+    port: 5672
+  
+aws:
+  s3:
+    endpoint: http://localhost:4566
+
+logging:
+  level:
+    com.concil.edi.consumer: DEBUG
+    org.springframework.amqp: DEBUG
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+  
+  jpa:
+    show-sql: false
+  
+  rabbitmq:
+    listener:
+      simple:
+        concurrency: 5
+        max-concurrency: 10
+
+aws:
+  s3:
+    endpoint: # Use default AWS endpoint in production
+    path-style-access: false
+
+logging:
+  level:
+    root: WARN
+    com.concil.edi.consumer: INFO
+    org.springframework.amqp: WARN
