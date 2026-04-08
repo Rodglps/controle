@@ -1,0 +1,81 @@
+{
+  "vhosts": [
+    {
+      "name": "/"
+    }
+  ],
+  "users": [
+    {
+      "name": "admin",
+      "password": "admin",
+      "tags": ["administrator"]
+    }
+  ],
+  "permissions": [
+    {
+      "user": "admin",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "queues": [
+    {
+      "name": "edi.file.transfer.queue",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum",
+        "x-dead-letter-exchange": "edi.file.transfer.dlx",
+        "x-dead-letter-routing-key": "edi.file.transfer.dlq"
+      }
+    },
+    {
+      "name": "edi.file.transfer.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "quorum"
+      }
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "edi.file.transfer.exchange",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "edi.file.transfer.dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "edi.file.transfer.exchange",
+      "vhost": "/",
+      "destination": "edi.file.transfer.queue",
+      "destination_type": "queue",
+      "routing_key": "edi.file.transfer",
+      "arguments": {}
+    },
+    {
+      "source": "edi.file.transfer.dlx",
+      "vhost": "/",
+      "destination": "edi.file.transfer.dlq",
+      "destination_type": "queue",
+      "routing_key": "edi.file.transfer.dlq",
+      "arguments": {}
+    }
+  ]
+}

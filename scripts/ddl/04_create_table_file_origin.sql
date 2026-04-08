@@ -42,7 +42,7 @@ CREATE TABLE file_origin (
     des_file_name VARCHAR2(255) NOT NULL,
     num_file_size NUMBER(19),
     des_file_mime_type VARCHAR2(100),
-    des_file_type VARCHAR2(50) CHECK (des_file_type IN ('csv', 'json', 'txt', 'xml')),
+    des_file_type VARCHAR2(50) CHECK (des_file_type IN ('CSV', 'JSON', 'TXT', 'XML', 'OFX')),
     des_step VARCHAR2(50) NOT NULL CHECK (des_step IN ('COLETA', 'DELETE', 'RAW', 'STAGING', 'ORDINATION', 'PROCESSING', 'PROCESSED')),
     des_status VARCHAR2(50) CHECK (des_status IN ('EM_ESPERA', 'PROCESSAMENTO', 'CONCLUIDO', 'ERRO')),
     des_message_error VARCHAR2(4000),

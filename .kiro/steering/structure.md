@@ -19,9 +19,22 @@ Shared code used by both producer and consumer:
 commons/src/main/java/com/concil/edi/commons/
 ├── config/                 # Shared configurations (RabbitMQConfig)
 ├── dto/                    # Data Transfer Objects (FileTransferMessage)
-├── enums/                  # Enumerations (FileType, Status, Step, etc.)
-├── entity/                 # JPA entities (FileOrigin, Server, ServerPath, etc.)
-└── repository/             # JPA repositories for database access (centralized)
+├── enums/                  # Enumerations (FileType, Status, Step, CriteriaType, ValueOrigin, FunctionType, etc.)
+├── entity/                 # JPA entities (FileOrigin, Server, Layout, CustomerIdentification, etc.)
+├── repository/             # JPA repositories for database access (centralized)
+└── service/                # Shared services for identification
+    ├── CriteriaComparator.java      # Criteria comparison logic
+    ├── EncodingConverter.java       # Encoding detection and conversion
+    ├── RuleValidator.java           # Rule validation logic
+    ├── TransformationApplier.java   # Transformation functions
+    └── extractor/                   # Value extraction strategies
+        ├── IdentificationRule.java  # Common interface for rules
+        ├── ValueExtractor.java      # Strategy interface
+        ├── FilenameExtractor.java   # FILENAME extraction
+        ├── HeaderTxtExtractor.java  # TXT HEADER extraction
+        ├── HeaderCsvExtractor.java  # CSV HEADER extraction
+        ├── XmlTagExtractor.java     # XML TAG extraction
+        └── JsonKeyExtractor.java    # JSON KEY extraction
 ```
 
 ### Producer Module
@@ -42,7 +55,17 @@ Message consumption and file transfer:
 ```
 consumer/src/main/java/com/concil/edi/consumer/
 ├── config/                 # Consumer-specific config
+├── listener/               # RabbitMQ message listeners
+│   └── FileTransferListener.java
 ├── service/                # Business logic services
+│   ├── layout/             # Layout identification services
+│   │   └── LayoutIdentificationService.java
+│   ├── customer/           # Customer identification services
+│   │   └── CustomerIdentificationService.java
+│   └── upload/             # File upload services
+│       ├── FileUploadService.java
+│       ├── S3UploadService.java
+│       └── SftpUploadService.java
 └── ConsumerApplication.java
 ```
 

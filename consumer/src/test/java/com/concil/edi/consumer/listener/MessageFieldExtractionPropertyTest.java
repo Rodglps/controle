@@ -53,14 +53,16 @@ class MessageFieldExtractionPropertyTest {
         @ForAll @Positive Long idtFileOrigin,
         @ForAll @AlphaChars @StringLength(min = 1, max = 255) String filename,
         @ForAll @Positive Long idtServerPathOrigin,
-        @ForAll @Positive Long idtServerPathDestination
+        @ForAll @Positive Long idtServerPathDestination,
+        @ForAll @Positive Long fileSize
     ) {
         // Create message with specific values
         FileTransferMessageDTO message = new FileTransferMessageDTO(
             idtFileOrigin,
             filename,
             idtServerPathOrigin,
-            idtServerPathDestination
+            idtServerPathDestination,
+            fileSize
         );
         
         // Property: Extracted values must match original values
@@ -91,7 +93,8 @@ class MessageFieldExtractionPropertyTest {
             original.getIdtFileOrigin(),
             original.getFilename(),
             original.getIdtServerPathOrigin(),
-            original.getIdtServerPathDestination()
+            original.getIdtServerPathDestination(),
+            original.getFileSize()
         );
         
         // Property: All fields must be preserved after serialization
@@ -125,6 +128,7 @@ class MessageFieldExtractionPropertyTest {
         return Combinators.combine(
             positiveIds,
             filenames,
+            positiveIds,
             positiveIds,
             positiveIds
         ).as(FileTransferMessageDTO::new);

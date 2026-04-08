@@ -7,6 +7,7 @@ import com.concil.edi.commons.enums.ServerOrigin;
 import com.concil.edi.commons.enums.PathType;
 import com.concil.edi.commons.repository.ServerPathRepository;
 import com.concil.edi.commons.repository.ServerRepository;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
+@Tag("integration")
 public class FileDownloadServiceTest {
     
     @Autowired
@@ -58,7 +60,7 @@ public class FileDownloadServiceTest {
         
         // Create test server path
         testServerPath = new ServerPath();
-        testServerPath.setIdtServer(testServer.getIdtServer());
+        testServerPath.setServer(testServer);
         testServerPath.setIdtAcquirer(1L);
         testServerPath.setDesPath("/data/incoming");
         testServerPath.setDesPathType(PathType.ORIGIN);
@@ -74,10 +76,9 @@ public class FileDownloadServiceTest {
         
         // Act & Assert: Should not throw exception during configuration lookup
         assertDoesNotThrow(() -> {
-            ServerPath path = serverPathRepository.findById(testServerPath.getIdtServerPath())
+            ServerPath path = serverPathRepository.findById(testServerPath.getIdtSeverPath())
                 .orElseThrow();
-            Server server = serverRepository.findById(path.getIdtServer())
-                .orElseThrow();
+            Server server = path.getServer();
             
             assertNotNull(server.getCodServer());
             assertNotNull(server.getCodVault());
@@ -96,10 +97,9 @@ public class FileDownloadServiceTest {
     @Test
     void testCredentialsObtainedCorrectly() {
         // Arrange
-        ServerPath path = serverPathRepository.findById(testServerPath.getIdtServerPath())
+        ServerPath path = serverPathRepository.findById(testServerPath.getIdtSeverPath())
             .orElseThrow();
-        Server server = serverRepository.findById(path.getIdtServer())
-            .orElseThrow();
+        Server server = path.getServer();
         
         // Assert: Credentials configuration is correct
         assertEquals("TEST_SFTP_VAULT", server.getCodVault());
@@ -134,7 +134,7 @@ public class FileDownloadServiceTest {
     @Test
     void testServerPathContainsCorrectPath() {
         // Arrange
-        ServerPath path = serverPathRepository.findById(testServerPath.getIdtServerPath())
+        ServerPath path = serverPathRepository.findById(testServerPath.getIdtSeverPath())
             .orElseThrow();
         
         // Assert

@@ -478,4 +478,106 @@ public abstract class E2ETestBase {
             }
         }
     }
+    
+    // ========================================================================
+    // DATABASE HELPER METHODS
+    // ========================================================================
+    
+    /**
+     * Wait for file_origin record to be created
+     * 
+     * @param filename File name to search for
+     * @param timeoutSeconds Maximum wait time in seconds
+     * @return file_origin ID if found, null otherwise
+     */
+    protected Long waitForFileOriginRecord(String filename, int timeoutSeconds) throws Exception {
+        long startTime = System.currentTimeMillis();
+        long timeoutMillis = timeoutSeconds * 1000L;
+        
+        while (System.currentTimeMillis() - startTime < timeoutMillis) {
+            try (java.sql.Connection conn = java.sql.DriverManager.getConnection(jdbcUrl, dbUsername, dbPassword);
+                 java.sql.Statement stmt = conn.createStatement()) {
+                
+                String query = "SELECT idt_file_origin FROM file_origin " +
+                        "WHERE des_file_name = '" + filename + "' AND flg_active = 1";
+                
+                java.sql.ResultSet rs = stmt.executeQuery(query);
+                if (rs.next()) {
+                    return rs.getLong("idt_file_origin");
+                }
+            }
+            
+            // Wait 2 seconds before retry
+            Thread.sleep(2000);
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Wait for file status to change to expected value
+     * 
+     * @param fileOriginId File origin ID
+     * @param expectedStatus Expected status
+     * @param timeoutSeconds Maximum wait time in seconds
+     */
+    protected void waitForFileStatus(Long fileOriginId, String expectedStatus, int timeoutSeconds) throws Exception {
+        long startTime = System.currentTimeMillis();
+        long timeoutMillis = timeoutSeconds * 1000L;
+        
+        while (System.currentTimeMillis() - startTime < timeoutMillis) {
+            try (java.sql.Connection conn = java.sql.DriverManager.getConnection(jdbcUrl, dbUsername, dbPassword);
+                 java.sql.Statement stmt = conn.createStatement()) {
+                
+                String query = "SELECT des_status FROM file_origin WHERE idt_file_origin = " + fileOriginId;
+                java.sql.ResultSet rs = stmt.executeQuery(query);
+                
+                if (rs.next()) {
+                    String currentStatus = rs.getString("des_status");
+                    System.out.println("  Current status: " + currentStatus);
+                    
+                    if (expectedStatus.equals(currentStatus)) {
+                        return;
+                    }
+                }
+            }
+            
+            // Wait 2 seconds before retry
+            Thread.sleep(2000);
+        }
+        
+        throw new AssertionError("Timeout waiting for status " + expectedStatus + 
+                " for file_origin ID " + fileOriginId);
+    }
+    
+    /**
+     * Validate file_origin record fields
+     */
+    protected void validateFileOriginRecord(Long fileOriginId, String expectedStep, 
+                                         String expectedStatus, long expectedSize) throws Exception {
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(jdbcUrl, dbUsername, dbPassword);
+             java.sql.Statement stmt = conn.createStatement()) {
+            
+            String query = "SELECT * FROM file_origin WHERE idt_file_origin = " + fileOriginId;
+            java.sql.ResultSet rs = stmt.executeQuery(query);
+            
+            if (!rs.next()) {
+                throw new AssertionError("File origin record should exist");
+            }
+            
+            String actualStep = rs.getString("des_step");
+            String actualStatus = rs.getString("des_status");
+            long actualSize = rs.getLong("num_file_size");
+            
+            if (!expectedStep.equals(actualStep)) {
+                throw new AssertionError("Step should be " + expectedStep + " but was " + actualStep);
+            }
+            if (!expectedStatus.equals(actualStatus)) {
+                throw new AssertionError("Status should be " + expectedStatus + " but was " + actualStatus);
+            }
+            if (expectedSize != actualSize) {
+                throw new AssertionError("File size should be " + expectedSize + " but was " + actualSize);
+            }
+        }
+    }
 }

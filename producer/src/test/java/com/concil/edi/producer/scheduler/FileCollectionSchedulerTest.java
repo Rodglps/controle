@@ -453,7 +453,7 @@ class FileCollectionSchedulerTest {
             filename,
             size,
             new Timestamp(System.currentTimeMillis() + timeOffset * 1000L),
-            FileType.csv
+            FileType.CSV
         );
     }
     

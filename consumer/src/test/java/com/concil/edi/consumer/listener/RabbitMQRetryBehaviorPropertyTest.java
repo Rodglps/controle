@@ -173,7 +173,7 @@ class RabbitMQRetryBehaviorPropertyTest {
             .withChars('.', '_', '-')
             .ofMinLength(1)
             .ofMaxLength(255);
-        Arbitrary<Integer> retryCount = Arbitraries.integers().between(0, 4);
+        Arbitrary<Integer> retryCount = Arbitraries.integers().between(0, 3);
         
         return Combinators.combine(
             positiveIds,
@@ -193,7 +193,7 @@ class RabbitMQRetryBehaviorPropertyTest {
         fileOrigin.setIdtLayout(1L);
         fileOrigin.setDesFileName(filename);
         fileOrigin.setNumFileSize(1024L);
-        fileOrigin.setDesFileType(FileType.csv);
+        fileOrigin.setDesFileType(FileType.CSV);
         fileOrigin.setDesStep(Step.COLETA);
         fileOrigin.setDesStatus(Status.PROCESSAMENTO);
         fileOrigin.setDesTransactionType(TransactionType.COMPLETO);

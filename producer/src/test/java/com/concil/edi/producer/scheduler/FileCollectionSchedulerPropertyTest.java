@@ -409,7 +409,7 @@ class FileCollectionSchedulerPropertyTest {
             filename,
             1000L + index,
             new Timestamp(System.currentTimeMillis() + index),
-            FileType.csv
+            FileType.CSV
         );
     }
     

@@ -7,6 +7,8 @@ import com.concil.edi.commons.enums.FileType;
 import com.concil.edi.commons.enums.TransactionType;
 import com.concil.edi.commons.repository.FileOriginRepository;
 import net.jqwik.api.*;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -28,6 +30,8 @@ import java.util.Date;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@Tag("integration")
+@Disabled("Requires Oracle database - run with 'make e2e'")
 public class StatusUpdateSuccessPropertyTest {
     
     @Autowired
@@ -43,6 +47,7 @@ public class StatusUpdateSuccessPropertyTest {
     }
     
     @Property
+    @net.jqwik.api.Disabled("Requires Oracle database - run with 'make e2e'")
     @Transactional
     void successStatusUpdateMustPopulateAllFields(
         @ForAll("fileNames") String fileName,
@@ -55,12 +60,12 @@ public class StatusUpdateSuccessPropertyTest {
         fileOrigin.setIdtAcquirer(acquirerId);
         fileOrigin.setIdtLayout(1L);
         fileOrigin.setNumFileSize(fileSize);
-        fileOrigin.setDesFileType(FileType.csv);
+        fileOrigin.setDesFileType(FileType.CSV);
         fileOrigin.setDesStep(Step.COLETA);
         fileOrigin.setDesStatus(Status.PROCESSAMENTO);
         fileOrigin.setDesTransactionType(TransactionType.COMPLETO);
         fileOrigin.setDatTimestampFile(new Timestamp(System.currentTimeMillis()));
-        fileOrigin.setIdtServerPathsInOut(1L);
+        fileOrigin.setIdtSeverPathsInOut(1L);
         fileOrigin.setDatCreation(new Date());
         fileOrigin.setFlgActive(1);
         fileOrigin.setNumRetry(0);

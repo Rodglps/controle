@@ -670,7 +670,7 @@ class FileValidatorTest {
      * Create a FileMetadataDTO for testing
      */
     private FileMetadataDTO createFile(String filename, Long size, Timestamp timestamp) {
-        return new FileMetadataDTO(filename, size, timestamp, FileType.csv);
+        return new FileMetadataDTO(filename, size, timestamp, FileType.CSV);
     }
     
     /**

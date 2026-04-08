@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: edi-consumer-test
+  
+  # Oracle Database Configuration for Tests
+  datasource:
+    url: ${DB_URL:jdbc:oracle:thin:@localhost:1521/XEPDB1}
+    username: ${DB_USERNAME:edi_user}
+    password: ${DB_PASSWORD:edi_pass}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 30000
+  
+  # JPA Configuration for Tests
+  jpa:
+    database-platform: org.hibernate.dialect.OracleDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+  
+  # RabbitMQ Configuration for Tests (not needed for integration tests)
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD:admin}
+
+# Layout Identification Configuration
+layout:
+  identification:
+    buffer-limit: 7000
+
+# Logging Configuration for Tests
+logging:
+  level:
+    root: INFO
+    com.concil.edi.consumer: DEBUG
+    org.springframework.test: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE

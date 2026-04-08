@@ -78,6 +78,12 @@ sftp:
     max-idle: ${SFTP_POOL_MAX_IDLE:5}
     min-idle: ${SFTP_POOL_MIN_IDLE:2}
 
+# Layout Identification Configuration
+layout:
+  identification:
+    # Buffer limit for reading file headers during layout identification (in bytes)
+    buffer-limit: ${FILE_ORIGIN_BUFFER_LIMIT:7000}
+
 # Actuator Configuration (Health Checks)
 management:
   endpoints:

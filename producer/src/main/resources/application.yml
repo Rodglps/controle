@@ -27,7 +27,7 @@ spring:
 # Scheduler configuration
 scheduler:
   file-collection:
-    fixed-delay: ${SCHEDULER_FIXED_DELAY:120000}  # 2 minutes
+    fixed-delay: ${PRODUCER_DELAY:120000}  # 2 minutes (default), 20000 for E2E tests
 
 # Retry configuration
 retry:

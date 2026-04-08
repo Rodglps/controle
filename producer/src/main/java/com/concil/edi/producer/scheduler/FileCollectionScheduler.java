@@ -43,10 +43,11 @@ public class FileCollectionScheduler {
     private final ServerPathInOutRepository serverPathInOutRepository;
     
     /**
-     * Main scheduled method that executes every 2 minutes.
+     * Main scheduled method. Default: every 2 minutes (120000ms).
+     * Configurable via PRODUCER_DELAY environment variable (in milliseconds).
      * Processes failed publications first, then collects new files.
      */
-    @Scheduled(fixedDelay = 120000) // 2 minutes
+    @Scheduled(fixedDelayString = "${scheduler.file-collection.fixed-delay}")
     public void collectFiles() {
         log.info("Starting file collection cycle");
         

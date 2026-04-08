@@ -203,7 +203,7 @@ class RabbitMQAcknowledgmentPropertyTest {
         fileOrigin.setIdtLayout(1L);
         fileOrigin.setDesFileName(filename);
         fileOrigin.setNumFileSize(1024L);
-        fileOrigin.setDesFileType(FileType.csv);
+        fileOrigin.setDesFileType(FileType.CSV);
         fileOrigin.setDesStep(Step.COLETA);
         fileOrigin.setDesStatus(Status.PROCESSAMENTO);
         fileOrigin.setDesTransactionType(TransactionType.COMPLETO);

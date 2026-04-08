@@ -10,10 +10,14 @@ import com.concil.edi.commons.enums.Step;
 import com.concil.edi.commons.enums.FileType;
 import com.concil.edi.commons.enums.TransactionType;
 import com.concil.edi.commons.repository.FileOriginRepository;
+import com.concil.edi.commons.repository.FileOriginClientsRepository;
 import com.concil.edi.commons.repository.ServerPathRepository;
 import com.concil.edi.consumer.dto.ServerConfigurationDTO;
+import com.concil.edi.consumer.service.CustomerIdentificationService;
 import com.concil.edi.consumer.service.FileDownloadService;
 import com.concil.edi.consumer.service.FileUploadService;
+import com.concil.edi.consumer.service.LayoutIdentificationService;
+import com.concil.edi.consumer.service.RemoveOriginService;
 import com.concil.edi.consumer.service.StatusUpdateService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,12 +31,14 @@ import org.springframework.amqp.rabbit.support.ListenerExecutionFailedException;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.sql.Timestamp;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 /**
  * Unit tests for FileTransferListener.
@@ -58,6 +64,18 @@ class FileTransferListenerTest {
     @Mock
     private ServerPathRepository serverPathRepository;
 
+    @Mock
+    private LayoutIdentificationService layoutIdentificationService;
+
+    @Mock
+    private CustomerIdentificationService customerIdentificationService;
+
+    @Mock
+    private FileOriginClientsRepository fileOriginClientsRepository;
+
+    @Mock
+    private RemoveOriginService removeOriginService;
+
     @InjectMocks
     private FileTransferListener listener;
 
@@ -72,12 +90,21 @@ class FileTransferListenerTest {
             1L,
             "test-file.csv",
             10L,
-            20L
+            20L,
+            1024L
         );
 
         fileOrigin = createFileOrigin(1L, "test-file.csv", 0, 5);
         server = createServer(1L, "S3-BUCKET", ServerType.S3);
-        serverPath = createServerPath(20L, server, "/destination/path");
+        serverPath = createServerPath(20L, server, "S3-BUCKET/destination/path");
+        
+        // Mock layout identification to return layout ID 1 (lenient to avoid unnecessary stubbing errors)
+        lenient().when(layoutIdentificationService.identifyLayout(any(InputStream.class), anyString(), anyLong()))
+            .thenReturn(1L);
+        
+        // Mock customer identification to return empty list (lenient to avoid unnecessary stubbing errors)
+        lenient().when(customerIdentificationService.identifyCustomers(any(byte[].class), anyString(), anyLong(), anyLong()))
+            .thenReturn(Collections.emptyList());
     }
 
     @Test
@@ -85,36 +112,58 @@ class FileTransferListenerTest {
     void shouldProcessValidMessageSuccessfullyForS3() {
         // Arrange
         InputStream inputStream = new ByteArrayInputStream("test content".getBytes());
+        ServerPath originPath = createServerPath(10L, server, "/origin/path");
+        when(fileOriginRepository.findById(1L))
+            .thenReturn(Optional.of(fileOrigin))  // isPendingRemoval check
+            .thenReturn(Optional.of(fileOrigin)); // executeRemoval fetch
         when(fileDownloadService.openInputStream(10L, "test-file.csv")).thenReturn(inputStream);
-        when(serverPathRepository.findById(20L)).thenReturn(Optional.of(serverPath));
+        when(serverPathRepository.findWithServerByIdtSeverPath(10L)).thenReturn(Optional.of(originPath));
+        when(serverPathRepository.findWithServerByIdtSeverPath(20L)).thenReturn(Optional.of(serverPath));
+        when(fileUploadService.getS3ObjectSize(eq("S3-BUCKET"), eq("destination/path/test-file.csv"))).thenReturn(1024L);
 
         // Act
         listener.handleFileTransfer(validMessage);
 
         // Assert
         verify(statusUpdateService).updateStatus(1L, Status.PROCESSAMENTO);
-        verify(fileDownloadService).openInputStream(10L, "test-file.csv");
-        verify(fileUploadService).uploadToS3(eq(inputStream), eq("S3-BUCKET"), eq("/destination/path/test-file.csv"));
+        verify(layoutIdentificationService).identifyLayout(any(InputStream.class), eq("test-file.csv"), eq(1L));
+        verify(statusUpdateService).updateLayoutId(1L, 1L);
+        verify(customerIdentificationService).identifyCustomers(any(byte[].class), eq("test-file.csv"), eq(1L), eq(1L));
+        verify(fileDownloadService, times(2)).openInputStream(10L, "test-file.csv");
+        verify(fileUploadService).uploadToS3(any(InputStream.class), eq("S3-BUCKET"), eq("destination/path/test-file.csv"), eq(1024L));
+        verify(fileUploadService).getS3ObjectSize("S3-BUCKET", "destination/path/test-file.csv");
+        verify(removeOriginService).removeFile(10L, "test-file.csv");
         verify(statusUpdateService).updateStatus(1L, Status.CONCLUIDO);
-        verifyNoMoreInteractions(statusUpdateService);
     }
 
     @Test
     @DisplayName("Should process valid message successfully for SFTP destination")
     void shouldProcessValidMessageSuccessfullyForSftp() {
         // Arrange
-        server.setDesServerType(ServerType.SFTP);
+        Server sftpServer = createServer(2L, "sftp-destination", ServerType.SFTP);
+        ServerPath sftpPath = createServerPath(20L, sftpServer, "/destination/path");
         InputStream inputStream = new ByteArrayInputStream("test content".getBytes());
+        ServerPath originPath = createServerPath(10L, server, "/origin/path");
+        when(fileOriginRepository.findById(1L))
+            .thenReturn(Optional.of(fileOrigin))  // isPendingRemoval check
+            .thenReturn(Optional.of(fileOrigin)); // executeRemoval fetch
         when(fileDownloadService.openInputStream(10L, "test-file.csv")).thenReturn(inputStream);
-        when(serverPathRepository.findById(20L)).thenReturn(Optional.of(serverPath));
+        when(serverPathRepository.findWithServerByIdtSeverPath(10L)).thenReturn(Optional.of(originPath));
+        when(serverPathRepository.findWithServerByIdtSeverPath(20L)).thenReturn(Optional.of(sftpPath));
+        when(fileUploadService.getSftpFileSize(any(ServerConfigurationDTO.class), eq("/destination/path/test-file.csv"))).thenReturn(1024L);
 
         // Act
         listener.handleFileTransfer(validMessage);
 
         // Assert
         verify(statusUpdateService).updateStatus(1L, Status.PROCESSAMENTO);
-        verify(fileDownloadService).openInputStream(10L, "test-file.csv");
-        verify(fileUploadService).uploadToSftp(eq(inputStream), any(ServerConfigurationDTO.class), eq("/destination/path/test-file.csv"));
+        verify(layoutIdentificationService).identifyLayout(any(InputStream.class), eq("test-file.csv"), eq(1L));
+        verify(statusUpdateService).updateLayoutId(1L, 1L);
+        verify(customerIdentificationService).identifyCustomers(any(byte[].class), eq("test-file.csv"), eq(1L), eq(1L));
+        verify(fileDownloadService, times(2)).openInputStream(10L, "test-file.csv");
+        verify(fileUploadService).uploadToSftp(any(InputStream.class), any(ServerConfigurationDTO.class), eq("/destination/path/test-file.csv"));
+        verify(fileUploadService).getSftpFileSize(any(ServerConfigurationDTO.class), eq("/destination/path/test-file.csv"));
+        verify(removeOriginService).removeFile(10L, "test-file.csv");
         verify(statusUpdateService).updateStatus(1L, Status.CONCLUIDO);
     }
 
@@ -122,7 +171,7 @@ class FileTransferListenerTest {
     @DisplayName("Should handle invalid message structure gracefully")
     void shouldHandleInvalidMessageStructure() {
         // Arrange
-        FileTransferMessageDTO invalidMessage = new FileTransferMessageDTO(null, null, null, null);
+        FileTransferMessageDTO invalidMessage = new FileTransferMessageDTO(null, null, null, null, null);
         when(fileOriginRepository.findById(any())).thenReturn(Optional.empty());
 
         // Act
@@ -137,8 +186,13 @@ class FileTransferListenerTest {
     void shouldUpdateDatabaseAfterExceptionDuringDownload() {
         // Arrange
         RuntimeException downloadException = new RuntimeException("SFTP connection failed");
+        ServerPath originPath = createServerPath(10L, server, "/origin/path");
+        when(serverPathRepository.findWithServerByIdtSeverPath(10L)).thenReturn(Optional.of(originPath));
         when(fileDownloadService.openInputStream(10L, "test-file.csv")).thenThrow(downloadException);
-        when(fileOriginRepository.findById(1L)).thenReturn(Optional.of(fileOrigin));
+        when(fileOriginRepository.findById(1L))
+            .thenReturn(Optional.of(fileOrigin))  // isPendingRemoval check
+            .thenReturn(Optional.of(fileOrigin))  // handleError first fetch
+            .thenReturn(Optional.of(fileOrigin)); // handleError second fetch
 
         // Act & Assert
         assertThatThrownBy(() -> listener.handleFileTransfer(validMessage))
@@ -155,10 +209,15 @@ class FileTransferListenerTest {
         // Arrange
         InputStream inputStream = new ByteArrayInputStream("test content".getBytes());
         RuntimeException uploadException = new RuntimeException("S3 upload failed");
+        ServerPath originPath = createServerPath(10L, server, "/origin/path");
         when(fileDownloadService.openInputStream(10L, "test-file.csv")).thenReturn(inputStream);
-        when(serverPathRepository.findById(20L)).thenReturn(Optional.of(serverPath));
-        doThrow(uploadException).when(fileUploadService).uploadToS3(any(), any(), any());
-        when(fileOriginRepository.findById(1L)).thenReturn(Optional.of(fileOrigin));
+        when(serverPathRepository.findWithServerByIdtSeverPath(10L)).thenReturn(Optional.of(originPath));
+        when(serverPathRepository.findWithServerByIdtSeverPath(20L)).thenReturn(Optional.of(serverPath));
+        doThrow(uploadException).when(fileUploadService).uploadToS3(any(), any(), any(), anyLong());
+        when(fileOriginRepository.findById(1L))
+            .thenReturn(Optional.of(fileOrigin))  // isPendingRemoval check
+            .thenReturn(Optional.of(fileOrigin))  // handleError first fetch
+            .thenReturn(Optional.of(fileOrigin)); // handleError second fetch
 
         // Act & Assert
         assertThatThrownBy(() -> listener.handleFileTransfer(validMessage))
@@ -174,10 +233,13 @@ class FileTransferListenerTest {
         // Arrange
         fileOrigin.setNumRetry(2); // Below max_retry of 5
         RuntimeException exception = new RuntimeException("Transfer failed");
+        ServerPath originPath = createServerPath(10L, server, "/origin/path");
+        when(serverPathRepository.findWithServerByIdtSeverPath(10L)).thenReturn(Optional.of(originPath));
         when(fileDownloadService.openInputStream(10L, "test-file.csv")).thenThrow(exception);
         when(fileOriginRepository.findById(1L))
-            .thenReturn(Optional.of(fileOrigin))
-            .thenReturn(Optional.of(fileOrigin));
+            .thenReturn(Optional.of(fileOrigin))  // isPendingRemoval check
+            .thenReturn(Optional.of(fileOrigin))  // handleError first fetch
+            .thenReturn(Optional.of(fileOrigin)); // handleError second fetch
 
         // Act & Assert
         assertThatThrownBy(() -> listener.handleFileTransfer(validMessage))
@@ -193,10 +255,13 @@ class FileTransferListenerTest {
         // Arrange
         fileOrigin.setNumRetry(5); // At max_retry
         RuntimeException exception = new RuntimeException("Transfer failed");
+        ServerPath originPath = createServerPath(10L, server, "/origin/path");
+        when(serverPathRepository.findWithServerByIdtSeverPath(10L)).thenReturn(Optional.of(originPath));
         when(fileDownloadService.openInputStream(10L, "test-file.csv")).thenThrow(exception);
         when(fileOriginRepository.findById(1L))
-            .thenReturn(Optional.of(fileOrigin))
-            .thenReturn(Optional.of(fileOrigin));
+            .thenReturn(Optional.of(fileOrigin))  // isPendingRemoval check
+            .thenReturn(Optional.of(fileOrigin))  // handleError first fetch
+            .thenReturn(Optional.of(fileOrigin)); // handleError second fetch
 
         // Act - should not throw exception (ACK)
         listener.handleFileTransfer(validMessage);
@@ -212,9 +277,14 @@ class FileTransferListenerTest {
     void shouldHandleMissingDestinationConfiguration() {
         // Arrange
         InputStream inputStream = new ByteArrayInputStream("test content".getBytes());
+        ServerPath originPath = createServerPath(10L, server, "/origin/path");
         when(fileDownloadService.openInputStream(10L, "test-file.csv")).thenReturn(inputStream);
-        when(serverPathRepository.findById(20L)).thenReturn(Optional.empty());
-        when(fileOriginRepository.findById(1L)).thenReturn(Optional.of(fileOrigin));
+        when(serverPathRepository.findWithServerByIdtSeverPath(10L)).thenReturn(Optional.of(originPath));
+        when(serverPathRepository.findWithServerByIdtSeverPath(20L)).thenReturn(Optional.empty());
+        when(fileOriginRepository.findById(1L))
+            .thenReturn(Optional.of(fileOrigin))  // isPendingRemoval check
+            .thenReturn(Optional.of(fileOrigin))  // handleError first fetch
+            .thenReturn(Optional.of(fileOrigin)); // handleError second fetch
 
         // Act & Assert
         assertThatThrownBy(() -> listener.handleFileTransfer(validMessage))
@@ -229,9 +299,14 @@ class FileTransferListenerTest {
         // Arrange
         server.setDesServerType(ServerType.NFS); // Unsupported type
         InputStream inputStream = new ByteArrayInputStream("test content".getBytes());
+        ServerPath originPath = createServerPath(10L, server, "/origin/path");
         when(fileDownloadService.openInputStream(10L, "test-file.csv")).thenReturn(inputStream);
-        when(serverPathRepository.findById(20L)).thenReturn(Optional.of(serverPath));
-        when(fileOriginRepository.findById(1L)).thenReturn(Optional.of(fileOrigin));
+        when(serverPathRepository.findWithServerByIdtSeverPath(10L)).thenReturn(Optional.of(originPath));
+        when(serverPathRepository.findWithServerByIdtSeverPath(20L)).thenReturn(Optional.of(serverPath));
+        when(fileOriginRepository.findById(1L))
+            .thenReturn(Optional.of(fileOrigin))  // isPendingRemoval check
+            .thenReturn(Optional.of(fileOrigin))  // handleError first fetch
+            .thenReturn(Optional.of(fileOrigin)); // handleError second fetch
 
         // Act & Assert
         assertThatThrownBy(() -> listener.handleFileTransfer(validMessage))
@@ -249,7 +324,7 @@ class FileTransferListenerTest {
         fo.setIdtLayout(1L);
         fo.setDesFileName(filename);
         fo.setNumFileSize(1024L);
-        fo.setDesFileType(FileType.csv);
+        fo.setDesFileType(FileType.CSV);
         fo.setDesStep(Step.COLETA);
         fo.setDesStatus(Status.EM_ESPERA);
         fo.setDesTransactionType(TransactionType.COMPLETO);

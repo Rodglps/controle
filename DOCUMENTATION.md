@@ -15,6 +15,7 @@
 | ⚙️ **Setup** | [docs/setup/](docs/setup/) | Configuração do ambiente |
 | 🧪 **Testes** | [docs/testing/](docs/testing/) | Testes E2E e unitários |
 | 🏗️ **Arquitetura** | [docs/architecture/](docs/architecture/) | Arquitetura e fluxos do sistema |
+| ✨ **Funcionalidades** | [docs/features/](docs/features/) | Documentação de funcionalidades específicas |
 | 📊 **Relatórios** | [docs/reports/](docs/reports/) | Relatórios e análises |
 
 ## 📘 Documentos Mais Acessados
@@ -59,6 +60,10 @@ docs/
 ├── architecture/                      # Arquitetura
 │   └── producer-flow.md               # Fluxo do Producer
 │
+├── features/                          # Funcionalidades
+│   ├── layout-identification.md       # Identificação de layouts ⭐
+│   └── customer-identification.md     # Identificação de clientes ⭐
+│
 └── reports/                           # Relatórios
     └── verification.md                # Relatório de verificação
 ```
@@ -71,10 +76,12 @@ docs/
 3. [docs/setup/docker.md](docs/setup/docker.md) - Setup
 4. `make up` - Iniciar ambiente
 
-### Quero entender a arquitetura
+### Para Entender
 1. [.kiro/steering/product.md](.kiro/steering/product.md) - Visão de produto
 2. [.kiro/specs/controle-arquivos-edi/design.md](.kiro/specs/controle-arquivos-edi/design.md) - Design
 3. [docs/architecture/producer-flow.md](docs/architecture/producer-flow.md) - Fluxos
+4. [docs/features/layout-identification.md](docs/features/layout-identification.md) - Identificação de layouts
+5. [docs/features/customer-identification.md](docs/features/customer-identification.md) - Identificação de clientes
 
 ### Quero executar testes
 1. [docs/makefile/cheatsheet.md](docs/makefile/cheatsheet.md) - Comandos
@@ -88,8 +95,8 @@ docs/
 
 ## 📊 Estatísticas
 
-- **19 documentos** markdown na pasta docs/
-- **5 categorias** organizadas
+- **21 documentos** markdown na pasta docs/
+- **6 categorias** organizadas
 - **8 READMEs** para navegação
 - **Raiz limpa** com apenas arquivos essenciais
 

@@ -10,6 +10,8 @@ import org.springframework.integration.file.remote.session.Session;
 import org.springframework.integration.file.remote.session.SessionFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.FilterInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 
 /**
@@ -67,12 +69,38 @@ public class FileDownloadService {
             
             log.info("Successfully opened InputStream for file: {} from {}", filename, remotePath);
             
-            return inputStream;
+            // Wrap the InputStream to ensure session is closed when stream is closed
+            return new SessionClosingInputStream(inputStream, session);
             
         } catch (Exception e) {
             log.error("Failed to open InputStream for file: {} from serverPathId: {}", 
                 filename, serverPathOriginId, e);
             throw new RuntimeException("Failed to open SFTP InputStream: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * InputStream wrapper that closes the SFTP session when the stream is closed.
+     * This prevents session leaks in the connection pool.
+     */
+    private static class SessionClosingInputStream extends FilterInputStream {
+        private final Session<?> session;
+        
+        public SessionClosingInputStream(InputStream in, Session<?> session) {
+            super(in);
+            this.session = session;
+        }
+        
+        @Override
+        public void close() throws IOException {
+            try {
+                super.close(); // Close the underlying InputStream first
+            } finally {
+                // Always close the session, even if stream close fails
+                if (session != null && session.isOpen()) {
+                    session.close();
+                }
+            }
         }
     }
 }

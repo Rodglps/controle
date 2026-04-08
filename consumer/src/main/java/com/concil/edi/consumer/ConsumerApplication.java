@@ -14,7 +14,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  */
 @SpringBootApplication
 @EnableRabbit
-@ComponentScan(basePackages = {"com.concil.edi.consumer", "com.concil.edi.commons.config"})
+@ComponentScan(basePackages = {"com.concil.edi.consumer", "com.concil.edi.commons.config", "com.concil.edi.commons.service"})
 @EntityScan(basePackages = "com.concil.edi.commons.entity")
 @EnableJpaRepositories(basePackages = "com.concil.edi.commons.repository")
 public class ConsumerApplication {

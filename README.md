@@ -20,8 +20,67 @@ make down
 ## Arquitetura
 
 - **Producer**: Coleta arquivos de servidores SFTP externos, registra no banco Oracle e publica mensagens no RabbitMQ
-- **Consumer**: Consome mensagens do RabbitMQ e transfere arquivos via streaming para destinos configurados (S3 ou SFTP interno)
+- **Consumer**: Consome mensagens do RabbitMQ, identifica o layout do arquivo, e transfere via streaming para destinos configurados (S3 ou SFTP interno)
 - **Commons**: Módulo compartilhado com entidades JPA, DTOs e configurações
+
+### Identificação de Layouts
+
+O Consumer implementa identificação automática de layouts de arquivos EDI durante o processo de transferência:
+
+- **Estratégias de Identificação**: FILENAME (nome do arquivo), HEADER (cabeçalho TXT/CSV), TAG (tags XML), KEY (chaves JSON)
+- **Critérios de Comparação**: COMECA_COM, TERMINA_COM, CONTEM, CONTIDO, IGUAL
+- **Funções de Transformação**: UPPERCASE, LOWERCASE, INITCAP, TRIM, NONE
+- **Algoritmo**: First-match wins com ordenação DESC por idt_layout
+
+#### Fluxo de Identificação
+
+1. Consumer recebe mensagem do RabbitMQ
+2. Abre InputStream do arquivo SFTP
+3. Lê buffer inicial (7000 bytes por padrão, configurável via `FILE_ORIGIN_BUFFER_LIMIT`)
+4. Detecta e converte encoding se necessário
+5. Busca layouts ativos por acquirer (ordenação DESC)
+6. Para cada layout, aplica todas as regras de identificação (operador AND)
+7. Retorna o primeiro layout que satisfaz todas as regras
+
+#### Status de Processamento
+
+- **CONCLUIDO**: Arquivo transferido com sucesso (layout identificado ou definido como layout 0)
+- **ERRO**: Falha na transferência (será retentado pelo Producer até max_retry)
+- **EM_ESPERA**: Aguardando processamento
+- **PROCESSAMENTO**: Em processamento no momento
+
+**Importante sobre arquivos não identificados**: 
+- Quando o layout não é identificado, o arquivo recebe `idt_layout = 0` (layout especial "SEM_IDENTIFICACAO")
+- O arquivo é transferido normalmente para o destino com status `CONCLUIDO`
+- Apenas arquivos com status `ERRO` são retentados pelo Producer
+- Arquivos com `idt_layout = 0` indicam que precisam de revisão manual para configuração de novas regras
+
+### Identificação de Clientes
+
+O Consumer também implementa identificação automática de clientes proprietários dos arquivos EDI, executada logo após a identificação de layout:
+
+- **Estratégias de Identificação**: FILENAME (nome do arquivo), HEADER (cabeçalho TXT/CSV), TAG (tags XML), KEY (chaves JSON)
+- **Critérios de Comparação**: COMECA_COM, TERMINA_COM, CONTEM, CONTIDO, IGUAL
+- **Funções de Transformação**: UPPERCASE, LOWERCASE, INITCAP, TRIM, NONE
+- **Algoritmo**: All-match - identifica todos os clientes cujas regras são satisfeitas (operador AND entre regras do mesmo cliente)
+- **Múltiplos Clientes**: Um arquivo pode pertencer a múltiplos clientes simultaneamente
+
+#### Fluxo de Identificação de Clientes
+
+1. Após identificação de layout, reutiliza o mesmo buffer de 7000 bytes
+2. Se layout não identificado: avalia apenas regras FILENAME
+3. Se layout identificado: avalia regras FILENAME + regras de conteúdo (HEADER, TAG, KEY)
+4. Para cada customer_identification ativo, aplica todas as regras (operador AND)
+5. Registra todos os clientes identificados na tabela `file_origin_clients`
+6. Se nenhum cliente identificado, continua processamento normalmente (sem registros)
+
+#### Características Importantes
+
+- **Reutilização de Buffer**: Usa o mesmo buffer já carregado para identificação de layout, evitando leitura duplicada
+- **Filtro por Adquirente**: Apenas regras da adquirente correspondente são avaliadas
+- **Ordenação por Peso**: Resultados ordenados por `num_process_weight DESC` (clientes mais relevantes primeiro)
+- **Continuidade**: Falha na identificação não interrompe a transferência do arquivo
+- **Tratamento de Erros**: Erros em TAG/KEY são registrados em log e o processamento continua
 
 ## Stack Tecnológica
 
@@ -194,6 +253,8 @@ As configurações são externalizadas via variáveis de ambiente. Veja `applica
 - `RABBITMQ_HOST`: Host do RabbitMQ
 - `AWS_ENDPOINT`: Endpoint S3 (LocalStack para dev)
 - `AWS_REGION`: Região AWS
+- `FILE_ORIGIN_BUFFER_LIMIT`: Tamanho do buffer para identificação de layout (padrão: 7000 bytes)
+- `QUEUE_DELAY`: Delay em segundos antes de processar mensagens (usado apenas em testes E2E, padrão: 0)
 
 ## Utilitários do Makefile
 

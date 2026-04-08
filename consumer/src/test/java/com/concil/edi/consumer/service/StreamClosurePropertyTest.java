@@ -1,7 +1,7 @@
 package com.concil.edi.consumer.service;
 
 import net.jqwik.api.*;
-import org.junit.jupiter.api.BeforeEach;
+import net.jqwik.api.lifecycle.BeforeTry;
 
 import java.io.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -19,9 +19,9 @@ public class StreamClosurePropertyTest {
     
     private StreamingService streamingService;
     
-    @BeforeEach
+    @BeforeTry
     void setup() {
-        streamingService = new StreamingServiceImpl();
+        streamingService = new StreamingService();
     }
     
     @Property

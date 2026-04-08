@@ -6,6 +6,7 @@ import com.concil.edi.commons.enums.Step;
 import com.concil.edi.commons.enums.FileType;
 import com.concil.edi.commons.enums.TransactionType;
 import com.concil.edi.commons.repository.FileOriginRepository;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
+@Tag("integration")
 public class StatusUpdateServiceTest {
     
     @Autowired
@@ -45,12 +47,12 @@ public class StatusUpdateServiceTest {
         testFileOrigin.setIdtAcquirer(1L);
         testFileOrigin.setIdtLayout(1L);
         testFileOrigin.setNumFileSize(1024L);
-        testFileOrigin.setDesFileType(FileType.csv);
+        testFileOrigin.setDesFileType(FileType.CSV);
         testFileOrigin.setDesStep(Step.COLETA);
         testFileOrigin.setDesStatus(Status.EM_ESPERA);
         testFileOrigin.setDesTransactionType(TransactionType.COMPLETO);
         testFileOrigin.setDatTimestampFile(new Timestamp(System.currentTimeMillis()));
-        testFileOrigin.setIdtServerPathsInOut(1L);
+        testFileOrigin.setIdtSeverPathsInOut(1L);
         testFileOrigin.setDatCreation(new Date());
         testFileOrigin.setFlgActive(1);
         testFileOrigin.setNumRetry(0);

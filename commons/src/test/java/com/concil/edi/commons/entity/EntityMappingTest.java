@@ -79,7 +79,7 @@ class EntityMappingTest {
         fileOrigin.setDesFileName("test-file.csv");
         fileOrigin.setNumFileSize(1024L);
         fileOrigin.setDesFileMimeType("text/csv");
-        fileOrigin.setDesFileType(FileType.csv);
+        fileOrigin.setDesFileType(FileType.CSV);
         fileOrigin.setDesStep(Step.COLETA);
         fileOrigin.setDesStatus(Status.EM_ESPERA);
         fileOrigin.setDesTransactionType(TransactionType.COMPLETO);
@@ -92,7 +92,7 @@ class EntityMappingTest {
 
         assertNotNull(fileOrigin);
         assertEquals("test-file.csv", fileOrigin.getDesFileName());
-        assertEquals(FileType.csv, fileOrigin.getDesFileType());
+        assertEquals(FileType.CSV, fileOrigin.getDesFileType());
         assertEquals(Step.COLETA, fileOrigin.getDesStep());
         assertEquals(Status.EM_ESPERA, fileOrigin.getDesStatus());
         assertEquals(0, fileOrigin.getNumRetry());
@@ -154,10 +154,10 @@ class EntityMappingTest {
         assertNotNull(Status.ERRO);
 
         // FileType
-        assertNotNull(FileType.csv);
-        assertNotNull(FileType.json);
-        assertNotNull(FileType.txt);
-        assertNotNull(FileType.xml);
+        assertNotNull(FileType.CSV);
+        assertNotNull(FileType.JSON);
+        assertNotNull(FileType.TXT);
+        assertNotNull(FileType.XML);
 
         // TransactionType
         assertNotNull(TransactionType.COMPLETO);

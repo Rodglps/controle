@@ -37,6 +37,8 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
+      - ./scripts/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./scripts/rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/20-definitions.conf:ro
     networks:
       - edi-network
     healthcheck:
@@ -48,7 +50,7 @@ services:
 
   # LocalStack for S3 simulation
   localstack:
-    image: localstack/localstack:latest
+    image: localstack/localstack:3.0
     container_name: edi-localstack
     environment:
       TZ: America/Sao_Paulo
@@ -56,7 +58,6 @@ services:
       DEBUG: 0
       PERSISTENCE: 1
       AWS_DEFAULT_REGION: us-east-1
-      LOCALSTACK_ACKNOWLEDGE_ACCOUNT_REQUIREMENT: 1
     ports:
       - "4566:4566"
     volumes:
@@ -118,6 +119,7 @@ services:
       SFTP_HOST: sftp-origin
       SFTP_PORT: 22
       SFTP_CIELO_VAULT: '{"user":"cielo","password":"admin-1-2-3"}'
+      PRODUCER_DELAY: ${PRODUCER_DELAY:-120000}
     ports:
       - "8080:8080"
     networks:

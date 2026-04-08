@@ -20,7 +20,7 @@ public class StreamingServiceTest {
     
     @BeforeEach
     void setup() {
-        streamingService = new StreamingServiceImpl();
+        streamingService = new StreamingService();
     }
     
     @Test

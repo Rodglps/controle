@@ -58,7 +58,8 @@ public class FileRegistrationService {
         
         // MVP values
         fileOrigin.setIdtAcquirer(MVP_ACQUIRER_ID);
-        fileOrigin.setIdtLayout(MVP_LAYOUT_ID);
+        // Note: idt_layout is intentionally left NULL - will be set by Consumer after layout identification
+        // If no layout is identified, Consumer will set idt_layout = 0 (SEM_IDENTIFICACAO)
         
         // File metadata
         fileOrigin.setDesFileName(metadata.getFilename());

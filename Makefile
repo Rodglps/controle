@@ -24,7 +24,7 @@ help: ## Exibe esta mensagem de ajuda
 
 up: build ## Inicia todos os serviços do docker-compose
 	@echo "$(BLUE)🚀 Iniciando serviços...$(NC)"
-	@docker-compose up -d oracle rabbitmq localstack sftp-origin sftp-destination sftp-client
+	@docker-compose up -d oracle rabbitmq localstack sftp-origin sftp-destination
 	@echo "$(YELLOW)⏳ Aguardando serviços ficarem saudáveis (pode levar 2-3 minutos)...$(NC)"
 	@$(MAKE) wait-healthy
 	@echo "$(BLUE)🗄️  Inicializando banco de dados...$(NC)"
@@ -79,21 +79,27 @@ test: ## Executa testes unitários
 e2e: ## Executa testes E2E (requer docker-compose rodando)
 	@echo "$(BLUE)🧪 Executando testes E2E...$(NC)"
 	@echo "$(YELLOW)⚠️  Certifique-se de que o docker-compose está rodando$(NC)"
-	@echo "$(BLUE)⚙️  Configurando QUEUE_DELAY=20 no Consumer...$(NC)"
-	@QUEUE_DELAY=20 docker-compose up -d consumer
-	@echo "$(YELLOW)⏳ Aguardando Consumer reiniciar (5 segundos)...$(NC)"
+	@echo "$(BLUE)⚙️  Configurando PRODUCER_DELAY=20000 e QUEUE_DELAY=5...$(NC)"
+	@PRODUCER_DELAY=20000 docker-compose up -d producer
+	@QUEUE_DELAY=5 docker-compose up -d consumer
+	@echo "$(YELLOW)⏳ Aguardando serviços reiniciarem (5 segundos)...$(NC)"
 	@sleep 5
-	@echo "$(BLUE)🧪 Executando testes...$(NC)"
+	@echo "$(BLUE)🧪 Executando testes de transferência...$(NC)"
 	@mvn test -Dtest=FileTransferE2ETest -pl commons
-	@echo "$(BLUE)⚙️  Restaurando QUEUE_DELAY=0 no Consumer...$(NC)"
+	@echo "$(BLUE)🧪 Executando testes de identificação de layout...$(NC)"
+	@mvn test -Dtest=LayoutIdentificationE2ETest -pl commons
+	@echo "$(BLUE)🧪 Executando testes de identificação de clientes...$(NC)"
+	@mvn test -Dtest=CustomerIdentificationE2ETest -pl commons
+	@echo "$(BLUE)⚙️  Restaurando configurações padrão...$(NC)"
+	@PRODUCER_DELAY=120000 docker-compose up -d producer
 	@QUEUE_DELAY=0 docker-compose up -d consumer
 	@echo "$(GREEN)✅ Testes E2E concluídos$(NC)"
 
-rebuild: ## Faz build completo, executa testes unitários e reinicia docker-compose
+rebuild: ## Faz build completo (sem testes) e reinicia docker-compose
 	@echo "$(BLUE)🔨 Iniciando rebuild completo...$(NC)"
 	@echo ""
 	@echo "$(BLUE)📦 Passo 1/3: Build do projeto$(NC)"
-	@mvn clean install
+	@mvn clean install -Dmaven.test.skip=true
 	@echo ""
 	@echo "$(BLUE)🛑 Passo 2/3: Parando serviços$(NC)"
 	@$(MAKE) down
@@ -103,11 +109,11 @@ rebuild: ## Faz build completo, executa testes unitários e reinicia docker-comp
 	@echo ""
 	@echo "$(GREEN)✅ Rebuild completo concluído!$(NC)"
 
-full-rebuild: ## Build completo incluindo reconstrução das imagens Docker
+full-rebuild: ## Build completo (sem testes) incluindo reconstrução das imagens Docker
 	@echo "$(BLUE)🔨 Iniciando rebuild completo com reconstrução de imagens...$(NC)"
 	@echo ""
 	@echo "$(BLUE)📦 Passo 1/4: Build do projeto$(NC)"
-	@mvn clean install
+	@mvn clean install -Dmaven.test.skip=true
 	@echo ""
 	@echo "$(BLUE)🛑 Passo 2/4: Parando e removendo containers$(NC)"
 	@docker-compose down
@@ -167,6 +173,11 @@ s3-list: ## Lista buckets e objetos no LocalStack S3
 	@echo ""
 	@docker exec edi-localstack awslocal s3 ls s3://edi-files/ --recursive
 
+s3-clean: ## Remove todos os arquivos do bucket S3
+	@echo "$(YELLOW)🧹 Limpando arquivos do S3...$(NC)"
+	@docker exec edi-localstack awslocal s3 rm s3://edi-files/cielo/ --recursive 2>/dev/null || true
+	@echo "$(GREEN)✅ Bucket S3 limpo$(NC)"
+
 sftp-copy: ## Copia arquivo para SFTP origin (uso: make sftp-copy FILE=arquivo.txt)
 	@if [ -z "$(FILE)" ]; then \
 		echo "$(RED)❌ Erro: Especifique o arquivo com FILE=caminho/arquivo$(NC)"; \
@@ -179,6 +190,8 @@ sftp-copy: ## Copia arquivo para SFTP origin (uso: make sftp-copy FILE=arquivo.t
 	fi
 	@echo "$(BLUE)📤 Copiando $(FILE) para SFTP origin...$(NC)"
 	@docker cp "$(FILE)" edi-sftp-origin:/home/cielo/upload/
+	@docker exec edi-sftp-origin chown 1001:100 /home/cielo/upload/$(notdir $(FILE))
+	@docker exec edi-sftp-origin chmod 644 /home/cielo/upload/$(notdir $(FILE))
 	@echo "$(GREEN)✅ Arquivo copiado para /home/cielo/upload/$(notdir $(FILE))$(NC)"
 
 sftp-list: ## Lista arquivos no SFTP origin

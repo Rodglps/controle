@@ -52,6 +52,13 @@ Novo no projeto? Comece aqui:
 |-----------|-----------|-------------|
 | [architecture/producer-flow.md](architecture/producer-flow.md) | Explicação do fluxo do Producer | Entender o Producer |
 
+### ✨ Funcionalidades
+
+| Documento | Descrição | Quando Usar |
+|-----------|-----------|-------------|
+| [features/layout-identification.md](features/layout-identification.md) | Identificação automática de layouts | Entender identificação de layouts |
+| [features/customer-identification.md](features/customer-identification.md) | Identificação automática de clientes | Entender identificação de clientes |
+
 ### 🔍 Análises e Relatórios
 
 | Documento | Descrição | Quando Usar |

@@ -36,11 +36,27 @@ public interface FileOriginRepository extends JpaRepository<FileOrigin, Long> {
     /**
      * Find failed publications that need retry.
      * Files with des_step=COLETA, des_status=ERRO, num_retry < max_retry.
+     * Only retries files with ERRO status (not files with idt_layout=0).
      * @return List of files that failed publication and can be retried
      */
     @Query("SELECT f FROM FileOrigin f WHERE f.desStep = :step AND f.desStatus = :status AND f.numRetry < f.maxRetry AND f.flgActive = 1")
     List<FileOrigin> findFailedPublications(
         @Param("step") Step step,
         @Param("status") Status status
+    );
+
+    /**
+     * Find files pending origin removal (failed with REMOVE_ORIGIN_FILE_ERROR marker).
+     * @param step Processing step
+     * @param status File status
+     * @param marker Error marker string to search in desMessageError
+     * @return List of files pending removal retry
+     */
+    @Query("SELECT f FROM FileOrigin f WHERE f.desStep = :step AND f.desStatus = :status " +
+           "AND f.desMessageError LIKE %:marker% AND f.numRetry < f.maxRetry AND f.flgActive = 1")
+    List<FileOrigin> findPendingRemovalFiles(
+        @Param("step") Step step,
+        @Param("status") Status status,
+        @Param("marker") String marker
     );
 }

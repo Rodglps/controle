@@ -47,7 +47,7 @@ class FileRegistrationServiceTest {
         String filename = "test_file.csv";
         Long fileSize = 1024L;
         Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-        FileType fileType = FileType.csv;
+        FileType fileType = FileType.CSV;
         Long serverPathInOutId = 10L;
         
         FileMetadataDTO metadata = new FileMetadataDTO(filename, fileSize, timestamp, fileType);

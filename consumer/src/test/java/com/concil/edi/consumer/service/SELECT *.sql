@@ -1,0 +1,22 @@
+SELECT *
+FROM EDI_USER.FILE_ORIGIN;
+
+SELECT srv.COD_SERVER
+     , srv.COD_VAULT
+     , srv.DES_SERVER_ORIGIN
+     , srvp.DES_PATH
+     , srvp.DES_PATH_TYPE
+     , srv.DES_SERVER_TYPE
+     , srv.DES_VAULT_SECRET
+     , srv.FLG_ACTIVE
+  FROM SERVER srv 
+       JOIN SEVER_PATHS srvp 
+         ON srv.IDT_SERVER = srvp.IDT_SERVER;
+
+SELECT * FROM SEVER_PATHS;
+
+SELECT * FROM SEVER_PATHS_IN_OUT;
+
+SELECT * FROM LAYOUT;
+
+SELECT * FROM layout_identification_rule; 

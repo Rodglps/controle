@@ -12,6 +12,8 @@ import org.springframework.integration.file.remote.session.SessionFactory;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.InputStream;
@@ -94,6 +96,67 @@ public class FileUploadService {
         }
     }
     
+    /**
+     * Returns the size in bytes of an object stored in S3.
+     * Uses HeadObject to retrieve metadata without downloading the file.
+     *
+     * @param bucketName S3 bucket name
+     * @param key        S3 object key
+     * @return size in bytes
+     * @throws RuntimeException if the operation fails
+     * Requirements: 1.1
+     */
+    public long getS3ObjectSize(String bucketName, String key) {
+        log.info("Getting S3 object size: bucket={}, key={}", bucketName, key);
+        try {
+            HeadObjectRequest request = HeadObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key)
+                    .build();
+            HeadObjectResponse response = s3Client.headObject(request);
+            long size = response.contentLength();
+            log.debug("S3 object size: bucket={}, key={}, size={}", bucketName, key, size);
+            return size;
+        } catch (Exception e) {
+            log.error("Failed to get S3 object size: bucket={}, key={}", bucketName, key, e);
+            throw new RuntimeException("Failed to get S3 object size: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Returns the size in bytes of a file on a remote SFTP server.
+     *
+     * @param config     SFTP server configuration with credentials
+     * @param remotePath Full remote path of the file
+     * @return size in bytes
+     * @throws RuntimeException if the operation fails
+     * Requirements: 1.1
+     */
+    public long getSftpFileSize(ServerConfigurationDTO config, String remotePath) {
+        log.info("Getting SFTP file size: codVault={}, path={}", config.getCodVault(), remotePath);
+        SessionFactory<org.apache.sshd.sftp.client.SftpClient.DirEntry> sessionFactory =
+                sftpConfig.getOrCreateSessionFactory(config.getCodVault(), config.getDesVaultSecret());
+        Session<org.apache.sshd.sftp.client.SftpClient.DirEntry> session = sessionFactory.getSession();
+        try {
+            org.apache.sshd.sftp.client.SftpClient.DirEntry[] entries = session.list(remotePath);
+            if (entries == null || entries.length == 0) {
+                throw new RuntimeException("File not found on SFTP: " + remotePath);
+            }
+            long size = entries[0].getAttributes().getSize();
+            log.debug("SFTP file size: path={}, size={}", remotePath, size);
+            return size;
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to get SFTP file size: path={}", remotePath, e);
+            throw new RuntimeException("Failed to get SFTP file size: " + e.getMessage(), e);
+        } finally {
+            if (session != null && session.isOpen()) {
+                session.close();
+            }
+        }
+    }
+
     /**
      * Helper method to get server configuration by serverPathId.
      * Used internally to resolve destination configuration.

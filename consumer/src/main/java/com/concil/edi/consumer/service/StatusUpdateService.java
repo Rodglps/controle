@@ -86,4 +86,25 @@ public class StatusUpdateService {
         
         log.info("Incremented retry count for file_origin {} to {}", fileOriginId, fileOrigin.getNumRetry());
     }
+    
+    /**
+     * Update layout ID for a file after successful identification.
+     * Updates idt_layout and dat_update.
+     * 
+     * @param fileOriginId File origin ID
+     * @param layoutId Layout ID identified
+     */
+    @Transactional
+    public void updateLayoutId(Long fileOriginId, Long layoutId) {
+        FileOrigin fileOrigin = fileOriginRepository.findById(fileOriginId)
+            .orElseThrow(() -> new IllegalArgumentException("FileOrigin not found: " + fileOriginId));
+        
+        fileOrigin.setIdtLayout(layoutId);
+        fileOrigin.setDatUpdate(new Date());
+        fileOrigin.setNamChangeAgent(CHANGE_AGENT);
+        
+        fileOriginRepository.save(fileOrigin);
+        
+        log.info("Updated file_origin {} with layout ID {}", fileOriginId, layoutId);
+    }
 }

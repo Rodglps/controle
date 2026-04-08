@@ -29,7 +29,7 @@ public class SftpService {
     private final SftpConfig sftpConfig;
     private final VaultConfig vaultConfig;
     
-    private static final List<String> ALLOWED_FILE_TYPES = List.of("csv", "json", "txt", "xml");
+    private static final List<String> ALLOWED_FILE_TYPES = List.of("CSV", "JSON", "TXT", "XML", "OFX");
     
     /**
      * List files in SFTP directory using Spring Integration SFTP.
@@ -78,7 +78,7 @@ public class SftpService {
                     continue;
                 }
                 
-                FileType fileType = FileType.valueOf(extension.toLowerCase());
+                FileType fileType = FileType.valueOf(extension.toUpperCase());
                 long fileSize = entry.getAttributes().getSize();
                 long mTime = entry.getAttributes().getModifyTime().toMillis();
                 Timestamp timestamp = new Timestamp(mTime);
@@ -144,15 +144,15 @@ public class SftpService {
     private String getFileExtension(String filename) {
         int lastDotIndex = filename.lastIndexOf('.');
         if (lastDotIndex > 0 && lastDotIndex < filename.length() - 1) {
-            return filename.substring(lastDotIndex + 1).toLowerCase();
+            return filename.substring(lastDotIndex + 1).toUpperCase();
         }
         return "";
     }
     
     /**
-     * Validate if file type is allowed (csv, json, txt, xml).
+     * Validate if file type is allowed (CSV, JSON, TXT, XML, OFX).
      */
     private boolean isValidFileType(String extension) {
-        return ALLOWED_FILE_TYPES.contains(extension.toLowerCase());
+        return ALLOWED_FILE_TYPES.contains(extension.toUpperCase());
     }
 }

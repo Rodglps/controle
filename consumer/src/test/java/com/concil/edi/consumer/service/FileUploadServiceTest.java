@@ -8,6 +8,7 @@ import com.concil.edi.commons.enums.PathType;
 import com.concil.edi.commons.repository.ServerPathRepository;
 import com.concil.edi.commons.repository.ServerRepository;
 import com.concil.edi.consumer.dto.ServerConfigurationDTO;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
+@Tag("integration")
 public class FileUploadServiceTest {
     
     @Autowired
@@ -61,7 +63,7 @@ public class FileUploadServiceTest {
         s3Server = serverRepository.save(s3Server);
         
         s3ServerPath = new ServerPath();
-        s3ServerPath.setIdtServer(s3Server.getIdtServer());
+        s3ServerPath.setServer(s3Server);
         s3ServerPath.setIdtAcquirer(1L);
         s3ServerPath.setDesPath("/destination/s3");
         s3ServerPath.setDesPathType(PathType.DESTINATION);
@@ -81,7 +83,7 @@ public class FileUploadServiceTest {
         sftpServer = serverRepository.save(sftpServer);
         
         sftpServerPath = new ServerPath();
-        sftpServerPath.setIdtServer(sftpServer.getIdtServer());
+        sftpServerPath.setServer(sftpServer);
         sftpServerPath.setIdtAcquirer(1L);
         sftpServerPath.setDesPath("/destination/sftp");
         sftpServerPath.setDesPathType(PathType.DESTINATION);
@@ -94,7 +96,7 @@ public class FileUploadServiceTest {
     void testGetServerConfigurationForS3() {
         // Act
         ServerConfigurationDTO config = fileUploadService.getServerConfiguration(
-            s3ServerPath.getIdtServerPath()
+            s3ServerPath.getIdtSeverPath()
         );
         
         // Assert
@@ -108,7 +110,7 @@ public class FileUploadServiceTest {
     void testGetServerConfigurationForSftp() {
         // Act
         ServerConfigurationDTO config = fileUploadService.getServerConfiguration(
-            sftpServerPath.getIdtServerPath()
+            sftpServerPath.getIdtSeverPath()
         );
         
         // Assert
@@ -126,7 +128,7 @@ public class FileUploadServiceTest {
         
         // Arrange
         ServerConfigurationDTO config = fileUploadService.getServerConfiguration(
-            s3ServerPath.getIdtServerPath()
+            s3ServerPath.getIdtSeverPath()
         );
         
         // Assert: Configuration is correct for S3 upload
@@ -141,7 +143,7 @@ public class FileUploadServiceTest {
         
         // Arrange
         ServerConfigurationDTO config = fileUploadService.getServerConfiguration(
-            sftpServerPath.getIdtServerPath()
+            sftpServerPath.getIdtSeverPath()
         );
         
         // Assert: Configuration is correct for SFTP upload
@@ -155,7 +157,7 @@ public class FileUploadServiceTest {
     void testMultipartUploadConfigurationForS3() {
         // Arrange
         ServerConfigurationDTO config = fileUploadService.getServerConfiguration(
-            s3ServerPath.getIdtServerPath()
+            s3ServerPath.getIdtSeverPath()
         );
         
         // Assert: S3 configuration supports multipart upload
@@ -167,7 +169,7 @@ public class FileUploadServiceTest {
     void testOutputStreamManagementForSftp() {
         // Arrange
         ServerConfigurationDTO config = fileUploadService.getServerConfiguration(
-            sftpServerPath.getIdtServerPath()
+            sftpServerPath.getIdtSeverPath()
         );
         
         // Assert: SFTP configuration is ready for OutputStream management
